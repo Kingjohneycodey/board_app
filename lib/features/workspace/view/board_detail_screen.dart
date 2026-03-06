@@ -226,9 +226,95 @@ class _BoardColumn extends ConsumerWidget {
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  itemCount: cards.length,
-                  itemBuilder: (context, index) =>
-                      _CardItem(card: cards[index], boardId: boardId),
+                  itemCount:
+                      cards.length + 1, // Add space for dropping at the end
+                  itemBuilder: (context, index) {
+                    if (index == cards.length) {
+                      // Bottom drop area
+                      return DragTarget<BoardCard>(
+                        onWillAcceptWithDetails: (details) => true,
+                        onAcceptWithDetails: (details) {
+                          ref
+                              .read(workspaceNotifierProvider.notifier)
+                              .moveCard(
+                                boardId,
+                                details.data.id,
+                                details.data.columnId,
+                                column.id,
+                                toIndex: cards.length,
+                              );
+                        },
+                        builder: (context, candidateData, rejectedData) =>
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              height: candidateData.isNotEmpty ? 80 : 20,
+                              margin: const EdgeInsets.only(top: 8),
+                              decoration: BoxDecoration(
+                                color: candidateData.isNotEmpty
+                                    ? AppTheme.primaryColor.withOpacity(0.1)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                border: candidateData.isNotEmpty
+                                    ? Border.all(
+                                        color: AppTheme.primaryColor,
+                                        width: 2,
+                                      )
+                                    : null,
+                              ),
+                              child: candidateData.isNotEmpty
+                                  ? const Center(
+                                      child: Icon(
+                                        Icons.add_circle_outline,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                      );
+                    }
+
+                    final card = cards[index];
+                    return DragTarget<BoardCard>(
+                      onWillAcceptWithDetails: (details) =>
+                          details.data.id != card.id,
+                      onAcceptWithDetails: (details) {
+                        ref
+                            .read(workspaceNotifierProvider.notifier)
+                            .moveCard(
+                              boardId,
+                              details.data.id,
+                              details.data.columnId,
+                              column.id,
+                              toIndex: index,
+                            );
+                      },
+                      builder: (context, candidateData, rejectedData) {
+                        return Column(
+                          children: [
+                            if (candidateData.isNotEmpty)
+                              Container(
+                                height: 80,
+                                margin: const EdgeInsets.only(bottom: 8),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.add_circle_outline,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ),
+                            _CardItem(card: card, boardId: boardId),
+                          ],
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
               Padding(

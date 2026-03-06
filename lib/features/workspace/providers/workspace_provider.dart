@@ -62,6 +62,8 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
 
       for (final column in columns) {
         final cards = await _repository.getCards(column.id);
+        // Sort cards by order
+        cards.sort((a, b) => a.order.compareTo(b.order));
         cardsMap[column.id] = cards;
       }
 
@@ -117,31 +119,59 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     String boardId,
     String cardId,
     String fromColumnId,
-    String toColumnId,
-  ) async {
+    String toColumnId, {
+    int? toIndex,
+  }) async {
     final currentMap = state.value ?? {};
     final boardState = currentMap[boardId];
     if (boardState == null) return;
 
     // Optimistic Update
+    final updatedCardsByColumn = Map<String, List<BoardCard>>.from(
+      boardState.cardsByColumn,
+    );
+
     final fromCards = List<BoardCard>.from(
-      boardState.cardsByColumn[fromColumnId] ?? [],
+      updatedCardsByColumn[fromColumnId] ?? [],
     );
     final cardIndex = fromCards.indexWhere((c) => c.id == cardId);
     if (cardIndex == -1) return;
 
     final card = fromCards.removeAt(cardIndex);
     final updatedCard = card.copyWith(columnId: toColumnId);
-    final toCards = List<BoardCard>.from(
-      boardState.cardsByColumn[toColumnId] ?? [],
-    );
-    toCards.add(updatedCard);
 
-    final updatedCardsByColumn = Map<String, List<BoardCard>>.from(
-      boardState.cardsByColumn,
-    );
-    updatedCardsByColumn[fromColumnId] = fromCards;
-    updatedCardsByColumn[toColumnId] = toCards;
+    if (fromColumnId == toColumnId) {
+      // Reordering in same column
+      final insertIndex = toIndex ?? fromCards.length;
+      fromCards.insert(
+        insertIndex > fromCards.length ? fromCards.length : insertIndex,
+        updatedCard,
+      );
+      // Update orders
+      for (int i = 0; i < fromCards.length; i++) {
+        fromCards[i] = fromCards[i].copyWith(order: i);
+      }
+      updatedCardsByColumn[fromColumnId] = fromCards;
+    } else {
+      // Moving to different column
+      final toCards = List<BoardCard>.from(
+        updatedCardsByColumn[toColumnId] ?? [],
+      );
+      final insertIndex = toIndex ?? toCards.length;
+      toCards.insert(
+        insertIndex > toCards.length ? toCards.length : insertIndex,
+        updatedCard,
+      );
+      // Update orders for both columns
+      for (int i = 0; i < fromCards.length; i++) {
+        fromCards[i] = fromCards[i].copyWith(order: i);
+      }
+      for (int i = 0; i < toCards.length; i++) {
+        toCards[i] = toCards[i].copyWith(order: i);
+      }
+      updatedCardsByColumn[fromColumnId] = fromCards;
+      updatedCardsByColumn[toColumnId] = toCards;
+    }
 
     state = AsyncValue.data({
       ...currentMap,
@@ -149,8 +179,13 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     });
 
     try {
-      await _repository.moveCard(cardId, fromColumnId, toColumnId);
-      // Load silently to sync with server without showing loader
+      // Note: Backend should eventually support index-based moving
+      await _repository.moveCard(
+        cardId,
+        fromColumnId,
+        toColumnId,
+        toIndex: toIndex,
+      );
       await loadBoard(boardId, silent: true);
     } catch (e) {
       // Rollback on error

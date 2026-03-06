@@ -93,8 +93,9 @@ class WorkspaceRepository {
   Future<void> moveCard(
     String cardId,
     String fromColumnId,
-    String toColumnId,
-  ) async {
+    String toColumnId, {
+    int? toIndex,
+  }) async {
     final fromCards = _mockCards[fromColumnId] ?? [];
     final cardIndex = fromCards.indexWhere((c) => c.id == cardId);
 
@@ -102,9 +103,35 @@ class WorkspaceRepository {
       final card = fromCards.removeAt(cardIndex);
       final updatedCard = card.copyWith(columnId: toColumnId);
 
-      final toCards = _mockCards[toColumnId] ?? [];
-      _mockCards[fromColumnId] = List.from(fromCards);
-      _mockCards[toColumnId] = [...toCards, updatedCard];
+      if (fromColumnId == toColumnId) {
+        final insertIndex = toIndex ?? fromCards.length;
+        fromCards.insert(
+          insertIndex > fromCards.length ? fromCards.length : insertIndex,
+          updatedCard,
+        );
+      } else {
+        final toCards = _mockCards[toColumnId] ?? [];
+        final insertIndex = toIndex ?? toCards.length;
+        toCards.insert(
+          insertIndex > toCards.length ? toCards.length : insertIndex,
+          updatedCard,
+        );
+        _mockCards[toColumnId] = toCards;
+      }
+
+      // Update orders in affected columns
+      for (int i = 0; i < fromCards.length; i++) {
+        fromCards[i] = fromCards[i].copyWith(order: i);
+      }
+      _mockCards[fromColumnId] = fromCards;
+
+      if (fromColumnId != toColumnId) {
+        final toCards = _mockCards[toColumnId]!;
+        for (int i = 0; i < toCards.length; i++) {
+          toCards[i] = toCards[i].copyWith(order: i);
+        }
+        _mockCards[toColumnId] = toCards;
+      }
     }
   }
 
