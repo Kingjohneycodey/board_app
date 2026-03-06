@@ -50,9 +50,29 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('No columns yet'),
+            const Text(
+              'No columns yet',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => _showColumnBottomSheet(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                minimumSize: const Size(0, 48),
+              ),
               child: const Text('Add Column'),
             ),
           ],
