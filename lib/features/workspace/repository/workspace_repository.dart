@@ -119,4 +119,24 @@ class WorkspaceRepository {
     cards.removeWhere((c) => c.id == cardId);
     _mockCards[columnId] = List.from(cards);
   }
+
+  Future<void> updateColumn(
+    String boardId,
+    String columnId,
+    String title,
+  ) async {
+    final columns = _mockColumns[boardId] ?? [];
+    final index = columns.indexWhere((c) => c.id == columnId);
+    if (index != -1) {
+      columns[index] = columns[index].copyWith(title: title);
+      _mockColumns[boardId] = List.from(columns);
+    }
+  }
+
+  Future<void> deleteColumn(String boardId, String columnId) async {
+    final columns = _mockColumns[boardId] ?? [];
+    columns.removeWhere((c) => c.id == columnId);
+    _mockColumns[boardId] = List.from(columns);
+    _mockCards.remove(columnId);
+  }
 }

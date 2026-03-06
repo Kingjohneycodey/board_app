@@ -30,6 +30,22 @@ class Board {
     'createdAt': createdAt.toIso8601String(),
     'ownerId': ownerId,
   };
+
+  Board copyWith({
+    String? id,
+    String? title,
+    String? description,
+    DateTime? createdAt,
+    String? ownerId,
+  }) {
+    return Board(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      createdAt: createdAt ?? this.createdAt,
+      ownerId: ownerId ?? this.ownerId,
+    );
+  }
 }
 
 class BoardColumn {
@@ -60,6 +76,20 @@ class BoardColumn {
     'title': title,
     'order': order,
   };
+
+  BoardColumn copyWith({
+    String? id,
+    String? boardId,
+    String? title,
+    int? order,
+  }) {
+    return BoardColumn(
+      id: id ?? this.id,
+      boardId: boardId ?? this.boardId,
+      title: title ?? this.title,
+      order: order ?? this.order,
+    );
+  }
 }
 
 class BoardCard {

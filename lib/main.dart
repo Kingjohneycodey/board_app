@@ -28,13 +28,14 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.read(authNotifierProvider);
+    final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeProvider);
     return MaterialApp.router(
       title: 'Board',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
-      routerConfig: appRouter,
+      routerConfig: router,
       debugShowCheckedModeBanner: false,
     );
   }

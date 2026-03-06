@@ -5,32 +5,41 @@ import 'package:board_app/features/boards/repository/board_repository.dart';
 final boardRepositoryProvider = Provider((ref) => BoardRepository());
 
 class BoardNotifier extends AsyncNotifier<List<Board>> {
-  late final BoardRepository _repository;
-
   @override
   Future<List<Board>> build() async {
-    _repository = ref.watch(boardRepositoryProvider);
-    return _repository.getBoards();
+    return ref.watch(boardRepositoryProvider).getBoards();
   }
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _repository.getBoards());
+    final repository = ref.read(boardRepositoryProvider);
+    state = await AsyncValue.guard(() => repository.getBoards());
   }
 
   Future<void> addBoard(String title, String description) async {
     state = const AsyncValue.loading();
+    final repository = ref.read(boardRepositoryProvider);
     state = await AsyncValue.guard(() async {
-      await _repository.createBoard(title, description);
-      return _repository.getBoards();
+      await repository.createBoard(title, description);
+      return repository.getBoards();
     });
   }
 
   Future<void> deleteBoard(String id) async {
     state = const AsyncValue.loading();
+    final repository = ref.read(boardRepositoryProvider);
     state = await AsyncValue.guard(() async {
-      await _repository.deleteBoard(id);
-      return _repository.getBoards();
+      await repository.deleteBoard(id);
+      return repository.getBoards();
+    });
+  }
+
+  Future<void> updateBoard(String id, String title, String description) async {
+    state = const AsyncValue.loading();
+    final repository = ref.read(boardRepositoryProvider);
+    state = await AsyncValue.guard(() async {
+      await repository.updateBoard(id, title, description);
+      return repository.getBoards();
     });
   }
 }

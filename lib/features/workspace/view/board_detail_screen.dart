@@ -34,7 +34,7 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.view_column_outlined),
-            onPressed: () => _showAddColumnDialog(context),
+            onPressed: () => _showColumnBottomSheet(context),
           ),
         ],
       ),
@@ -52,7 +52,7 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
           children: [
             const Text('No columns yet'),
             ElevatedButton(
-              onPressed: () => _showAddColumnDialog(context),
+              onPressed: () => _showColumnBottomSheet(context),
               child: const Text('Add Column'),
             ),
           ],
@@ -76,33 +76,42 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
     );
   }
 
-  void _showAddColumnDialog(BuildContext context) {
-    final controller = TextEditingController();
-    showDialog(
+  void _showColumnBottomSheet(BuildContext context, {BoardColumn? column}) {
+    final controller = TextEditingController(text: column?.title);
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Column'),
-        content: TextField(
+      isScrollControlled: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _BaseFormBottomSheet(
+        title: column == null ? 'Add Column' : 'Rename Column',
+        submitLabel: column == null ? 'Add' : 'Rename',
+        onSubmit: () {
+          if (controller.text.isNotEmpty) {
+            if (column == null) {
+              ref
+                  .read(workspaceNotifierProvider.notifier)
+                  .addColumn(widget.boardId, controller.text.trim());
+            } else {
+              ref
+                  .read(workspaceNotifierProvider.notifier)
+                  .updateColumn(
+                    widget.boardId,
+                    column.id,
+                    controller.text.trim(),
+                  );
+            }
+            Navigator.pop(context);
+          }
+        },
+        child: TextField(
           controller: controller,
-          decoration: const InputDecoration(hintText: 'Column Title'),
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: 'Column Title',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                ref
-                    .read(workspaceNotifierProvider.notifier)
-                    .addColumn(widget.boardId, controller.text);
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
     );
   }
@@ -155,19 +164,46 @@ class _BoardColumn extends ConsumerWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      column.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                    Expanded(
+                      child: Text(
+                        column.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text(
-                      '${cards.length}',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.bold,
+                    PopupMenuButton<String>(
+                      icon: const Icon(
+                        Icons.more_vert,
+                        size: 20,
+                        color: Colors.grey,
                       ),
+                      onSelected: (value) {
+                        if (value == 'rename') {
+                          (context
+                                  .findAncestorStateOfType<
+                                    _BoardDetailScreenState
+                                  >())
+                              ?._showColumnBottomSheet(context, column: column);
+                        } else if (value == 'delete') {
+                          _showDeleteColumnConfirmation(context, ref);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'rename',
+                          child: Text('Rename'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text(
+                            'Delete',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -183,7 +219,7 @@ class _BoardColumn extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.all(8),
                 child: TextButton.icon(
-                  onPressed: () => _showAddCardDialog(context, ref),
+                  onPressed: () => _showCardFormBottomSheet(context, ref),
                   icon: const Icon(Icons.add),
                   label: const Text('Add Card'),
                 ),
@@ -195,48 +231,99 @@ class _BoardColumn extends ConsumerWidget {
     );
   }
 
-  void _showAddCardDialog(BuildContext context, WidgetRef ref) {
-    final titleController = TextEditingController();
-    final descController = TextEditingController();
+  void _showDeleteColumnConfirmation(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Card'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(hintText: 'Title'),
-            ),
-            TextField(
-              controller: descController,
-              decoration: const InputDecoration(hintText: 'Description'),
-            ),
-          ],
+        title: const Text('Delete Column?'),
+        content: Text(
+          'Are you sure you want to delete "${column.title}" and all its cards?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          TextButton(
             onPressed: () {
-              if (titleController.text.isNotEmpty) {
-                ref
-                    .read(workspaceNotifierProvider.notifier)
-                    .addCard(
-                      boardId,
-                      column.id,
-                      titleController.text,
-                      descController.text,
-                    );
-                Navigator.pop(context);
-              }
+              ref
+                  .read(workspaceNotifierProvider.notifier)
+                  .deleteColumn(boardId, column.id);
+              Navigator.pop(context);
             },
-            child: const Text('Add'),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showCardFormBottomSheet(
+    BuildContext context,
+    WidgetRef ref, {
+    BoardCard? card,
+  }) {
+    final titleController = TextEditingController(text: card?.title);
+    final descController = TextEditingController(text: card?.description);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _BaseFormBottomSheet(
+        title: card == null ? 'Add Card' : 'Edit Card',
+        submitLabel: card == null ? 'Add' : 'Save Changes',
+        onSubmit: () {
+          if (titleController.text.isNotEmpty) {
+            if (card == null) {
+              ref
+                  .read(workspaceNotifierProvider.notifier)
+                  .addCard(
+                    boardId,
+                    column.id,
+                    titleController.text.trim(),
+                    descController.text.trim(),
+                  );
+            } else {
+              ref
+                  .read(workspaceNotifierProvider.notifier)
+                  .updateCard(
+                    boardId,
+                    card.copyWith(
+                      title: titleController.text.trim(),
+                      description: descController.text.trim(),
+                    ),
+                  );
+            }
+            Navigator.pop(context);
+          }
+        },
+        child: Column(
+          children: [
+            TextField(
+              controller: titleController,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Card Title',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'Description',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -267,11 +354,35 @@ class _CardItem extends ConsumerWidget {
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  onPressed: () => ref
-                      .read(workspaceNotifierProvider.notifier)
-                      .deleteCard(boardId, card.columnId, card.id),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        final columnState = context
+                            .findAncestorWidgetOfExactType<_BoardColumn>();
+                        if (columnState != null) {
+                          columnState._showCardFormBottomSheet(
+                            context,
+                            ref,
+                            card: card,
+                          );
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => ref
+                          .read(workspaceNotifierProvider.notifier)
+                          .deleteCard(boardId, card.columnId, card.id),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -348,6 +459,82 @@ class _TagBadge extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.bold,
         ),
+      ),
+    );
+  }
+}
+
+class _BaseFormBottomSheet extends StatelessWidget {
+  final String title;
+  final String submitLabel;
+  final VoidCallback onSubmit;
+  final Widget child;
+
+  const _BaseFormBottomSheet({
+    required this.title,
+    required this.submitLabel,
+    required this.onSubmit,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          child,
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: onSubmit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: Text(
+                submitLabel,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

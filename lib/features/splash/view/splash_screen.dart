@@ -55,9 +55,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       context.go('/boards');
     }
     // Check if user has completed onboarding
-    // else if (tokenStorage.hasOnboarded) {
-    //   context.go('/login');
-    // }
+    else if (tokenStorage.hasOnboarded) {
+      context.go('/login');
+    }
     // Show onboarding for first-time users
     else {
       context.go('/onboarding');

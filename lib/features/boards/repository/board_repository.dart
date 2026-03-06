@@ -47,4 +47,15 @@ class BoardRepository {
     await Future.delayed(const Duration(milliseconds: 300));
     _mockBoards.removeWhere((board) => board.id == id);
   }
+
+  Future<void> updateBoard(String id, String title, String description) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final index = _mockBoards.indexWhere((board) => board.id == id);
+    if (index != -1) {
+      _mockBoards[index] = _mockBoards[index].copyWith(
+        title: title,
+        description: description,
+      );
+    }
+  }
 }

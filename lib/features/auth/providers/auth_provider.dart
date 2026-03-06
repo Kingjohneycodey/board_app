@@ -66,8 +66,16 @@ class AuthNotifier extends Notifier<AuthState> {
 
     // Initialize auth state from stored tokens and return it directly
     final tokens = _tokenStorage.getTokens();
+    final user = _tokenStorage.getUser();
     if (tokens != null) {
-      return AuthState(status: AuthStatus.authenticated, tokens: tokens);
+      if (user != null) {
+        _repository.setMockUser(user);
+      }
+      return AuthState(
+        status: AuthStatus.authenticated,
+        tokens: tokens,
+        user: user,
+      );
     } else {
       return const AuthState(status: AuthStatus.unauthenticated);
     }
@@ -132,6 +140,9 @@ class AuthNotifier extends Notifier<AuthState> {
         // Save full user data
         await _tokenStorage.saveUser(response.user!);
       }
+
+      // Mark onboarding as completed since they are now authenticated
+      await _tokenStorage.setHasOnboarded(true);
 
       state = state.copyWith(
         status: AuthStatus.authenticated,

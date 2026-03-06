@@ -19,6 +19,7 @@ class UserProfileNotifier extends Notifier<User?> {
 
     // Schedule async fetch for after initialization
     if (cachedUser != null) {
+      _authRepository.setMockUser(cachedUser);
       Future.microtask(() => fetchProfile());
     }
 

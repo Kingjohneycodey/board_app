@@ -157,6 +157,20 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     await _repository.deleteCard(columnId, cardId);
     await loadBoard(boardId);
   }
+
+  Future<void> updateColumn(
+    String boardId,
+    String columnId,
+    String title,
+  ) async {
+    await _repository.updateColumn(boardId, columnId, title);
+    await loadBoard(boardId);
+  }
+
+  Future<void> deleteColumn(String boardId, String columnId) async {
+    await _repository.deleteColumn(boardId, columnId);
+    await loadBoard(boardId);
+  }
 }
 
 final workspaceNotifierProvider =
