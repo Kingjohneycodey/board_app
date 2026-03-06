@@ -1,11 +1,47 @@
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:board_app/core/models/auth_response.dart';
 import 'package:board_app/core/models/user.dart';
 
 class AuthRepository {
   AuthRepository({dynamic apiClient});
 
-  // Static mock user to persist data across app sessions for simulation
-  static User? _mockUser;
+  static const String _mockUsersKey = 'mock_users_db';
+
+  // Simulator for a backend database
+  static Map<String, User> _mockUsers = {
+    'admin@boardapp.com': User(
+      id: 1,
+      name: 'John Doe',
+      email: 'admin@boardapp.com',
+      walletBalance: 0.0,
+    ),
+  };
+
+  // Current logged in user (in-memory mock)
+  static User? _mockCurrentUser;
+
+  /// Call this at app startup to restore the "database"
+  static void init(SharedPreferences prefs) {
+    final data = prefs.getString(_mockUsersKey);
+    if (data != null) {
+      try {
+        final Map<String, dynamic> decoded = jsonDecode(data);
+        decoded.forEach((key, value) {
+          _mockUsers[key] = User.fromJson(value);
+        });
+      } catch (_) {}
+    }
+  }
+
+  static Future<void> _persistDatabase() async {
+    final prefs = await SharedPreferences.getInstance();
+    final Map<String, dynamic> export = {};
+    _mockUsers.forEach((key, value) {
+      export[key] = value.toJson();
+    });
+    await prefs.setString(_mockUsersKey, jsonEncode(export));
+  }
 
   Future<AuthResponse> login({
     required String email,
@@ -13,18 +49,14 @@ class AuthRepository {
   }) async {
     await Future.delayed(const Duration(seconds: 1));
 
-    if (email == 'admin@boardapp.com' && password == 'password123') {
-      _mockUser = User(
-        id: 1,
-        name: 'John Doe',
-        email: email,
-        phone: '+1234567890',
-        walletBalance: 0.0,
-      );
+    // In a mock, we accept any password for registered users
+    final user = _mockUsers[email];
+    if (user != null) {
+      _mockCurrentUser = user;
       return AuthResponse(
         success: true,
         message: 'Login successful',
-        user: _mockUser,
+        user: user,
         tokens: AuthTokens(
           accessToken: 'mock_access_token',
           refreshToken: 'mock_refresh_token',
@@ -42,7 +74,11 @@ class AuthRepository {
   }) async {
     await Future.delayed(const Duration(seconds: 1));
 
-    _mockUser = User(
+    if (_mockUsers.containsKey(email)) {
+      return AuthResponse(success: false, message: 'Email already registered');
+    }
+
+    final newUser = User(
       id: DateTime.now().millisecondsSinceEpoch % 10000,
       name: name,
       email: email,
@@ -50,10 +86,15 @@ class AuthRepository {
       walletBalance: 0.0,
     );
 
+    // Save to our "database"
+    _mockUsers[email] = newUser;
+    _mockCurrentUser = newUser;
+    await _persistDatabase();
+
     return AuthResponse(
       success: true,
       message: 'Registration successful',
-      user: _mockUser,
+      user: newUser,
       tokens: AuthTokens(
         accessToken: 'mock_access_token',
         refreshToken: 'mock_refresh_token',
@@ -77,15 +118,7 @@ class AuthRepository {
     return AuthResponse(
       success: true,
       message: 'Profile fetched',
-      user:
-          _mockUser ??
-          User(
-            id: 1,
-            name: 'John Doe',
-            email: 'admin@boardapp.com',
-            phone: '+1234567890',
-            walletBalance: 0.0,
-          ),
+      user: _mockCurrentUser ?? _mockUsers['admin@boardapp.com']!,
     );
   }
 
@@ -97,33 +130,42 @@ class AuthRepository {
     dynamic photo,
   }) async {
     await Future.delayed(const Duration(seconds: 1));
-    if (_mockUser != null) {
-      _mockUser = User(
-        id: _mockUser!.id,
+    if (_mockCurrentUser != null) {
+      final updatedUser = User(
+        id: _mockCurrentUser!.id,
         name: name,
-        email: _mockUser!.email,
+        email: _mockCurrentUser!.email,
         phone: phone,
-        walletBalance: _mockUser!.walletBalance,
+        walletBalance: _mockCurrentUser!.walletBalance,
       );
+      _mockCurrentUser = updatedUser;
+      _mockUsers[updatedUser.email] = updatedUser;
+      await _persistDatabase();
     }
     return AuthResponse(
       success: true,
       message: 'Profile updated',
-      user: _mockUser,
+      user: _mockCurrentUser,
     );
   }
 
   Future<AuthResponse> deleteAccount() async {
     await Future.delayed(const Duration(seconds: 1));
-    _mockUser = null;
+    if (_mockCurrentUser != null) {
+      _mockUsers.remove(_mockCurrentUser!.email);
+      _mockCurrentUser = null;
+      await _persistDatabase();
+    }
     return AuthResponse(success: true, message: 'Account deleted');
   }
 
   void logout() {
-    _mockUser = null;
+    _mockCurrentUser = null;
   }
 
   void setMockUser(User user) {
-    _mockUser = user;
+    _mockCurrentUser = user;
+    _mockUsers[user.email] = user;
+    _persistDatabase();
   }
 }

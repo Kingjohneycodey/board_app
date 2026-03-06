@@ -86,7 +86,7 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
 
   Future<void> addColumn(String boardId, String title) async {
     await _repository.createColumn(boardId, title);
-    await loadBoard(boardId);
+    await loadBoard(boardId, silent: true);
   }
 
   Future<void> addCard(
@@ -96,12 +96,12 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     String description,
   ) async {
     await _repository.createCard(columnId, title, description);
-    await loadBoard(boardId);
+    await loadBoard(boardId, silent: true);
   }
 
   Future<void> updateCard(String boardId, BoardCard card) async {
     await _repository.updateCard(card);
-    await loadBoard(boardId);
+    await loadBoard(boardId, silent: true);
   }
 
   Future<void> moveCard(
@@ -155,7 +155,7 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     String cardId,
   ) async {
     await _repository.deleteCard(columnId, cardId);
-    await loadBoard(boardId);
+    await loadBoard(boardId, silent: true);
   }
 
   Future<void> updateColumn(
@@ -164,12 +164,12 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     String title,
   ) async {
     await _repository.updateColumn(boardId, columnId, title);
-    await loadBoard(boardId);
+    await loadBoard(boardId, silent: true);
   }
 
   Future<void> deleteColumn(String boardId, String columnId) async {
     await _repository.deleteColumn(boardId, columnId);
-    await loadBoard(boardId);
+    await loadBoard(boardId, silent: true);
   }
 }
 

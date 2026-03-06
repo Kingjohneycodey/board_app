@@ -4,6 +4,7 @@ import 'package:board_app/core/theme/theme_provider.dart';
 import 'package:board_app/core/router/app_router.dart';
 import 'package:board_app/core/theme/app_theme.dart';
 import 'package:board_app/features/auth/providers/auth_provider.dart';
+import 'package:board_app/features/auth/repository/auth_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
@@ -11,6 +12,9 @@ void main() async {
 
   // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
+
+  // Initialize Mock Repository with persistent data
+  AuthRepository.init(sharedPreferences);
 
   runApp(
     ProviderScope(

@@ -17,30 +17,36 @@ class BoardNotifier extends AsyncNotifier<List<Board>> {
   }
 
   Future<void> addBoard(String title, String description) async {
-    state = const AsyncValue.loading();
     final repository = ref.read(boardRepositoryProvider);
-    state = await AsyncValue.guard(() async {
+    final result = await AsyncValue.guard(() async {
       await repository.createBoard(title, description);
       return repository.getBoards();
     });
+    if (result.hasValue) {
+      state = AsyncValue.data(result.value!);
+    }
   }
 
   Future<void> deleteBoard(String id) async {
-    state = const AsyncValue.loading();
     final repository = ref.read(boardRepositoryProvider);
-    state = await AsyncValue.guard(() async {
+    final result = await AsyncValue.guard(() async {
       await repository.deleteBoard(id);
       return repository.getBoards();
     });
+    if (result.hasValue) {
+      state = AsyncValue.data(result.value!);
+    }
   }
 
   Future<void> updateBoard(String id, String title, String description) async {
-    state = const AsyncValue.loading();
     final repository = ref.read(boardRepositoryProvider);
-    state = await AsyncValue.guard(() async {
+    final result = await AsyncValue.guard(() async {
       await repository.updateBoard(id, title, description);
       return repository.getBoards();
     });
+    if (result.hasValue) {
+      state = AsyncValue.data(result.value!);
+    }
   }
 }
 

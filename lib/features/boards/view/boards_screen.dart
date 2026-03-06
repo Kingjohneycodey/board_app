@@ -86,8 +86,10 @@ class BoardsScreen extends ConsumerWidget {
       builder: (context) => _BoardFormBottomSheet(
         title: 'Create New Board',
         submitLabel: 'Create',
-        onSubmit: (title, description) {
-          ref.read(boardNotifierProvider.notifier).addBoard(title, description);
+        onSubmit: (title, description) async {
+          await ref
+              .read(boardNotifierProvider.notifier)
+              .addBoard(title, description);
         },
       ),
     );
@@ -195,8 +197,8 @@ class _BoardCard extends ConsumerWidget {
         submitLabel: 'Save Changes',
         initialTitle: board.title,
         initialDescription: board.description,
-        onSubmit: (title, description) {
-          ref
+        onSubmit: (title, description) async {
+          await ref
               .read(boardNotifierProvider.notifier)
               .updateBoard(board.id, title, description);
         },
@@ -209,80 +211,113 @@ class _BoardCard extends ConsumerWidget {
       context: context,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
+      builder: (context) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Container(
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+                color: Theme.of(context).scaffoldBackgroundColor,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            const Icon(Icons.delete_forever, size: 48, color: Colors.redAccent),
-            const SizedBox(height: 16),
-            const Text(
-              'Delete Board?',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Are you sure you want to delete "${board.title}"? This action cannot be undone.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: Colors.grey),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      ref
-                          .read(boardNotifierProvider.notifier)
-                          .deleteBoard(board.id);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 24),
+                  const Icon(
+                    Icons.delete_forever,
+                    size: 48,
+                    color: Colors.redAccent,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Delete Board?',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Are you sure you want to delete "${board.title}"? This action cannot be undone.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 32),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: isDeleting
+                              ? null
+                              : () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
                       ),
-                    ),
-                    child: const Text(
-                      'Delete',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isDeleting
+                              ? null
+                              : () async {
+                                  setState(() => isDeleting = true);
+                                  try {
+                                    await ref
+                                        .read(boardNotifierProvider.notifier)
+                                        .deleteBoard(board.id);
+                                    if (context.mounted) Navigator.pop(context);
+                                  } finally {
+                                    if (context.mounted) {
+                                      setState(() => isDeleting = false);
+                                    }
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: isDeleting
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'Delete',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -318,7 +353,7 @@ class _BoardFormBottomSheet extends StatefulWidget {
   final String submitLabel;
   final String? initialTitle;
   final String? initialDescription;
-  final Function(String, String) onSubmit;
+  final Future<void> Function(String, String) onSubmit;
 
   const _BoardFormBottomSheet({
     required this.title,
@@ -335,6 +370,7 @@ class _BoardFormBottomSheet extends StatefulWidget {
 class _BoardFormBottomSheetState extends State<_BoardFormBottomSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -414,15 +450,22 @@ class _BoardFormBottomSheetState extends State<_BoardFormBottomSheet> {
             width: double.infinity,
             height: 56,
             child: ElevatedButton(
-              onPressed: () {
-                if (_titleController.text.isNotEmpty) {
-                  widget.onSubmit(
-                    _titleController.text.trim(),
-                    _descriptionController.text.trim(),
-                  );
-                  Navigator.pop(context);
-                }
-              },
+              onPressed: _isLoading
+                  ? null
+                  : () async {
+                      if (_titleController.text.isNotEmpty) {
+                        setState(() => _isLoading = true);
+                        try {
+                          await widget.onSubmit(
+                            _titleController.text.trim(),
+                            _descriptionController.text.trim(),
+                          );
+                          if (mounted) Navigator.pop(context);
+                        } finally {
+                          if (mounted) setState(() => _isLoading = false);
+                        }
+                      }
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: Colors.white,
@@ -430,13 +473,22 @@ class _BoardFormBottomSheetState extends State<_BoardFormBottomSheet> {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: Text(
-                widget.submitLabel,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Text(
+                      widget.submitLabel,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
           ),
         ],
