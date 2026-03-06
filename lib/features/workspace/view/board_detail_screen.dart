@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:board_app/features/workspace/providers/workspace_provider.dart';
 import 'package:board_app/core/models/board_models.dart';
 import 'package:board_app/core/theme/app_theme.dart';
+import 'package:board_app/core/widgets/app_state_widgets.dart';
 import 'package:intl/intl.dart';
 
 class BoardDetailScreen extends ConsumerStatefulWidget {
@@ -38,45 +39,40 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
           ),
         ],
       ),
-      body: detailState == null || detailState.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _buildBoard(detailState),
+      body: _buildBody(detailState),
     );
+  }
+
+  Widget _buildBody(BoardDetailState? state) {
+    if (state == null || state.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+        ),
+      );
+    }
+
+    if (state.error != null) {
+      return AppErrorWidget(
+        message: state.error!,
+        onRetry: () => ref
+            .read(workspaceNotifierProvider.notifier)
+            .loadBoard(widget.boardId),
+      );
+    }
+
+    return _buildBoard(state);
   }
 
   Widget _buildBoard(BoardDetailState state) {
     if (state.columns.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'No columns yet',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => _showColumnBottomSheet(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                minimumSize: const Size(0, 48),
-              ),
-              child: const Text('Add Column'),
-            ),
-          ],
-        ),
+      return AppEmptyState(
+        icon: Icons.view_column_outlined,
+        title: 'Empty Board',
+        description:
+            'Start by adding a column (like "To Do" or "Done") to organize your tasks.',
+        actionLabel: 'Add First Column',
+        onAction: () => _showColumnBottomSheet(context),
       );
     }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:board_app/features/boards/providers/board_provider.dart';
 import 'package:board_app/core/theme/app_theme.dart';
+import 'package:board_app/core/widgets/app_state_widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 
@@ -23,7 +24,17 @@ class BoardsScreen extends ConsumerWidget {
             _buildAppBar(context),
             boardsAsync.when(
               data: (boards) => boards.isEmpty
-                  ? const SliverFillRemaining(child: _EmptyBoardsState())
+                  ? SliverFillRemaining(
+                      child: AppEmptyState(
+                        icon: Icons.dashboard_outlined,
+                        title: 'No Boards Found',
+                        description:
+                            'You don\'t have any boards yet. Create your first board to start managing your projects.',
+                        actionLabel: 'Create New Board',
+                        onAction: () =>
+                            _showCreateBoardBottomSheet(context, ref),
+                      ),
+                    )
                   : SliverPadding(
                       padding: const EdgeInsets.all(16),
                       sliver: SliverList(
@@ -34,10 +45,17 @@ class BoardsScreen extends ConsumerWidget {
                       ),
                     ),
               loading: () => const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                  ),
+                ),
               ),
               error: (err, stack) => SliverFillRemaining(
-                child: Center(child: Text('Error: $err')),
+                child: AppErrorWidget(
+                  message: err.toString(),
+                  onRetry: () => ref.invalidate(boardNotifierProvider),
+                ),
               ),
             ),
           ],
@@ -318,32 +336,6 @@ class _BoardCard extends ConsumerWidget {
           },
         );
       },
-    );
-  }
-}
-
-class _EmptyBoardsState extends StatelessWidget {
-  const _EmptyBoardsState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.dashboard_outlined, size: 80, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          const Text(
-            'No boards yet',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Create your first board to get started',
-            style: TextStyle(color: Colors.grey),
-          ),
-        ],
-      ),
     );
   }
 }
