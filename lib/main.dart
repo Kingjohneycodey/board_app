@@ -30,7 +30,7 @@ class MyApp extends ConsumerWidget {
     ref.read(authNotifierProvider);
     final themeMode = ref.watch(themeModeProvider);
     return MaterialApp.router(
-      title: 'App',
+      title: 'Board',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
