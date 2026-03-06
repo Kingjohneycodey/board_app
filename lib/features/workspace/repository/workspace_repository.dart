@@ -71,8 +71,10 @@ class WorkspaceRepository {
   Future<BoardCard> createCard(
     String columnId,
     String title,
-    String description,
-  ) async {
+    String description, {
+    List<String> tags = const [],
+    DateTime? dueDate,
+  }) async {
     final cards = _mockCards[columnId] ?? [];
     final nextOrder = cards.length;
     final newCard = BoardCard(
@@ -80,7 +82,8 @@ class WorkspaceRepository {
       columnId: columnId,
       title: title,
       description: description,
-      tags: [],
+      tags: tags,
+      dueDate: dueDate,
       order: nextOrder,
     );
     _mockCards[columnId] = [...cards, newCard];
@@ -131,6 +134,26 @@ class WorkspaceRepository {
       columns[index] = columns[index].copyWith(title: title);
       _mockColumns[boardId] = List.from(columns);
     }
+  }
+
+  Future<void> addComment(
+    BoardCard card,
+    String userId,
+    String userName,
+    String text,
+  ) async {
+    final newComment = CardComment(
+      id: 'com${DateTime.now().millisecondsSinceEpoch}',
+      cardId: card.id,
+      userId: userId,
+      userName: userName,
+      text: text,
+      createdAt: DateTime.now(),
+    );
+
+    final updatedCard = card.copyWith(comments: [...card.comments, newComment]);
+
+    await updateCard(updatedCard);
   }
 
   Future<void> deleteColumn(String boardId, String columnId) async {

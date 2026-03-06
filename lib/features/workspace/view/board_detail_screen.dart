@@ -346,6 +346,8 @@ class _BoardColumn extends ConsumerWidget {
   }) {
     final titleController = TextEditingController(text: card?.title);
     final descController = TextEditingController(text: card?.description);
+    final tagsController = TextEditingController(text: card?.tags.join(', '));
+    DateTime? selectedDate = card?.dueDate;
 
     showModalBottomSheet(
       context: context,
@@ -357,6 +359,11 @@ class _BoardColumn extends ConsumerWidget {
         submitLabel: card == null ? 'Add' : 'Save Changes',
         onSubmit: () async {
           if (titleController.text.isNotEmpty) {
+            final tags = tagsController.text
+                .split(',')
+                .map((t) => t.trim())
+                .where((t) => t.isNotEmpty)
+                .toList();
             if (card == null) {
               await ref
                   .read(workspaceNotifierProvider.notifier)
@@ -365,6 +372,8 @@ class _BoardColumn extends ConsumerWidget {
                     column.id,
                     titleController.text.trim(),
                     descController.text.trim(),
+                    tags: tags,
+                    dueDate: selectedDate,
                   );
             } else {
               await ref
@@ -374,6 +383,8 @@ class _BoardColumn extends ConsumerWidget {
                     card.copyWith(
                       title: titleController.text.trim(),
                       description: descController.text.trim(),
+                      tags: tags,
+                      dueDate: selectedDate,
                     ),
                   );
             }
@@ -394,13 +405,65 @@ class _BoardColumn extends ConsumerWidget {
             const SizedBox(height: 16),
             TextField(
               controller: descController,
-              maxLines: 3,
+              maxLines: 2,
               decoration: InputDecoration(
                 labelText: 'Description',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: tagsController,
+              decoration: InputDecoration(
+                labelText: 'Tags (comma separated)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            StatefulBuilder(
+              builder: (context, setPickerState) {
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.calendar_today, size: 20),
+                  title: Text(
+                    selectedDate == null
+                        ? 'Set Deadline'
+                        : 'Deadline: ${DateFormat('MMM d, yyyy').format(selectedDate!)}',
+                    style: TextStyle(
+                      color: selectedDate == null ? Colors.grey : null,
+                    ),
+                  ),
+                  trailing: selectedDate != null
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () => setPickerState(() {
+                            selectedDate = null;
+                          }),
+                        )
+                      : const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate ?? DateTime.now(),
+                      firstDate: DateTime.now().subtract(
+                        const Duration(days: 365),
+                      ),
+                      lastDate: DateTime.now().add(
+                        const Duration(days: 365 * 2),
+                      ),
+                    );
+                    if (picked != null) {
+                      setPickerState(() {
+                        selectedDate = picked;
+                      });
+                    }
+                  },
+                );
+              },
             ),
           ],
         ),
@@ -453,7 +516,6 @@ class _CardItem extends ConsumerWidget {
                         }
                       },
                     ),
-                    const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.delete_outline, size: 18),
                       padding: EdgeInsets.zero,
@@ -481,24 +543,43 @@ class _CardItem extends ConsumerWidget {
                 children: card.tags.map((tag) => _TagBadge(tag: tag)).toList(),
               ),
             ],
-            if (card.dueDate != null) ...[
+            if (card.dueDate != null || card.comments.isNotEmpty) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(
-                    Icons.access_time,
-                    size: 14,
-                    color: Colors.redAccent,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    DateFormat('MMM d').format(card.dueDate!),
-                    style: const TextStyle(
-                      fontSize: 11,
+                  if (card.dueDate != null) ...[
+                    const Icon(
+                      Icons.access_time,
+                      size: 14,
                       color: Colors.redAccent,
-                      fontWeight: FontWeight.w500,
                     ),
-                  ),
+                    const SizedBox(width: 4),
+                    Text(
+                      DateFormat('MMM d').format(card.dueDate!),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  if (card.comments.isNotEmpty) ...[
+                    Icon(
+                      Icons.chat_bubble_outline,
+                      size: 14,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${card.comments.length}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],
@@ -514,7 +595,325 @@ class _CardItem extends ConsumerWidget {
         child: SizedBox(width: 280, child: cardWidget),
       ),
       childWhenDragging: Opacity(opacity: 0.3, child: cardWidget),
-      child: cardWidget,
+      child: InkWell(
+        onTap: () => _showCardDetailsBottomSheet(context, ref),
+        borderRadius: BorderRadius.circular(12),
+        child: cardWidget,
+      ),
+    );
+  }
+
+  void _showCardDetailsBottomSheet(BuildContext context, WidgetRef ref) {
+    final commentController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Consumer(
+        builder: (context, ref, child) {
+          final detailState = ref.watch(boardDetailProvider(boardId));
+          BoardCard? currentCard;
+          if (detailState != null) {
+            for (final entry in detailState.cardsByColumn.entries) {
+              final found = entry.value.where((c) => c.id == card.id);
+              if (found.isNotEmpty) {
+                currentCard = found.first;
+                break;
+              }
+            }
+          }
+
+          final displayCard = currentCard ?? card;
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.8,
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Expanded(
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.all(24),
+                        sliver: SliverList(
+                          delegate: SliverChildListDelegate([
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    displayCard.title,
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  icon: const Icon(Icons.close),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'In column: ${detailState?.columns.firstWhere(
+                                    (c) => c.id == displayCard.columnId,
+                                    orElse: () => BoardColumn(id: '', boardId: '', title: '-', order: 0),
+                                  ).title ?? ""}',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                            const SizedBox(height: 24),
+                            if (displayCard.description.isNotEmpty) ...[
+                              const Text(
+                                'Description',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                displayCard.description,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  height: 1.5,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                            if (displayCard.tags.isNotEmpty) ...[
+                              const Text(
+                                'Tags',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: displayCard.tags
+                                    .map((tag) => _TagBadge(tag: tag))
+                                    .toList(),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                            if (displayCard.dueDate != null) ...[
+                              const Text(
+                                'Deadline',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.access_time,
+                                    size: 18,
+                                    color: Colors.redAccent,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    DateFormat(
+                                      'MMMM d, yyyy',
+                                    ).format(displayCard.dueDate!),
+                                    style: const TextStyle(
+                                      color: Colors.redAccent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                            const Divider(),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Comments',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ]),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        sliver: displayCard.comments.isEmpty
+                            ? const SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 20),
+                                  child: Center(
+                                    child: Text(
+                                      'No comments yet',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : SliverList(
+                                delegate: SliverChildBuilderDelegate((
+                                  context,
+                                  index,
+                                ) {
+                                  final comment = displayCard.comments[index];
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 20),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor: AppTheme.primaryColor
+                                              .withOpacity(0.1),
+                                          child: Text(
+                                            comment.userName.isNotEmpty
+                                                ? comment.userName[0]
+                                                      .toUpperCase()
+                                                : '?',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: AppTheme.primaryColor,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    comment.userName,
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    DateFormat(
+                                                      'MMM d, HH:mm',
+                                                    ).format(comment.createdAt),
+                                                    style: TextStyle(
+                                                      color: Colors.grey[500],
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                comment.text,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  height: 1.4,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }, childCount: displayCard.comments.length),
+                              ),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 12,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: commentController,
+                          decoration: InputDecoration(
+                            hintText: 'Write a comment...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? Colors.grey[800]
+                                : Colors.grey[100],
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                          ),
+                          maxLines: null,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: () async {
+                          if (commentController.text.trim().isNotEmpty) {
+                            final text = commentController.text.trim();
+                            commentController.clear();
+                            await ref
+                                .read(workspaceNotifierProvider.notifier)
+                                .addComment(boardId, displayCard, text);
+                          }
+                        },
+                        icon: const Icon(
+                          Icons.send,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 

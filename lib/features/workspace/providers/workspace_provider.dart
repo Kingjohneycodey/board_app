@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:board_app/core/models/board_models.dart';
 import 'package:board_app/features/workspace/repository/workspace_repository.dart';
+import 'package:board_app/features/profile/providers/profile_provider.dart';
 
 final workspaceRepositoryProvider = Provider((ref) => WorkspaceRepository());
 
@@ -93,9 +94,17 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     String boardId,
     String columnId,
     String title,
-    String description,
-  ) async {
-    await _repository.createCard(columnId, title, description);
+    String description, {
+    List<String> tags = const [],
+    DateTime? dueDate,
+  }) async {
+    await _repository.createCard(
+      columnId,
+      title,
+      description,
+      tags: tags,
+      dueDate: dueDate,
+    );
     await loadBoard(boardId, silent: true);
   }
 
@@ -170,6 +179,53 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
   Future<void> deleteColumn(String boardId, String columnId) async {
     await _repository.deleteColumn(boardId, columnId);
     await loadBoard(boardId, silent: true);
+  }
+
+  Future<void> addComment(String boardId, BoardCard card, String text) async {
+    final userProfile = ref.read(userProfileProvider);
+    // Use fallback if user is null for mock dev
+    final userId = userProfile?.id.toString() ?? 'mock_user';
+    final userName = userProfile?.name ?? 'John Doe';
+
+    final newComment = CardComment(
+      id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      cardId: card.id,
+      userId: userId,
+      userName: userName,
+      text: text,
+      createdAt: DateTime.now(),
+    );
+
+    // Optimistic Update
+    final currentMap = state.value ?? {};
+    final boardState = currentMap[boardId];
+    if (boardState != null) {
+      final updatedCardsByColumn = Map<String, List<BoardCard>>.from(
+        boardState.cardsByColumn,
+      );
+      final cards = List<BoardCard>.from(
+        updatedCardsByColumn[card.columnId] ?? [],
+      );
+      final index = cards.indexWhere((c) => c.id == card.id);
+      if (index != -1) {
+        cards[index] = cards[index].copyWith(
+          comments: [...cards[index].comments, newComment],
+        );
+        updatedCardsByColumn[card.columnId] = cards;
+        state = AsyncValue.data({
+          ...currentMap,
+          boardId: boardState.copyWith(cardsByColumn: updatedCardsByColumn),
+        });
+      }
+    }
+
+    try {
+      await _repository.addComment(card, userId, userName, text);
+      await loadBoard(boardId, silent: true);
+    } catch (e) {
+      // Rollback on error
+      await loadBoard(boardId);
+    }
   }
 }
 
