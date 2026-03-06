@@ -1,0 +1,122 @@
+import 'package:board_app/core/models/board_models.dart';
+
+class WorkspaceRepository {
+  final Map<String, List<BoardColumn>> _mockColumns = {
+    '1': [
+      BoardColumn(id: 'c1', boardId: '1', title: 'To Do', order: 0),
+      BoardColumn(id: 'c2', boardId: '1', title: 'In Progress', order: 1),
+      BoardColumn(id: 'c3', boardId: '1', title: 'Done', order: 2),
+    ],
+  };
+
+  final Map<String, List<BoardCard>> _mockCards = {
+    'c1': [
+      BoardCard(
+        id: 'k1',
+        columnId: 'c1',
+        title: 'Design UI Mockups',
+        description:
+            'Create high-fidelity mockups for the new mobile app dashboard.',
+        tags: ['Design', 'Mobile'],
+        dueDate: DateTime.now().add(const Duration(days: 3)),
+        order: 0,
+      ),
+      BoardCard(
+        id: 'k2',
+        columnId: 'c1',
+        title: 'Set up CI/CD',
+        description:
+            'Configure GitHub Actions for automated testing and deployment.',
+        tags: ['DevOps'],
+        order: 1,
+      ),
+    ],
+    'c2': [
+      BoardCard(
+        id: 'k3',
+        columnId: 'c2',
+        title: 'API Integration',
+        description: 'Implement the authentication flow using JWT.',
+        tags: ['Backend'],
+        dueDate: DateTime.now().add(const Duration(days: 1)),
+        order: 0,
+      ),
+    ],
+    'c3': [],
+  };
+
+  Future<List<BoardColumn>> getColumns(String boardId) async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    return List.from(_mockColumns[boardId] ?? []);
+  }
+
+  Future<List<BoardCard>> getCards(String columnId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return List.from(_mockCards[columnId] ?? []);
+  }
+
+  Future<BoardColumn> createColumn(String boardId, String title) async {
+    final columns = _mockColumns[boardId] ?? [];
+    final nextOrder = columns.length;
+    final newColumn = BoardColumn(
+      id: 'c${DateTime.now().millisecondsSinceEpoch}',
+      boardId: boardId,
+      title: title,
+      order: nextOrder,
+    );
+    _mockColumns[boardId] = [...columns, newColumn];
+    return newColumn;
+  }
+
+  Future<BoardCard> createCard(
+    String columnId,
+    String title,
+    String description,
+  ) async {
+    final cards = _mockCards[columnId] ?? [];
+    final nextOrder = cards.length;
+    final newCard = BoardCard(
+      id: 'k${DateTime.now().millisecondsSinceEpoch}',
+      columnId: columnId,
+      title: title,
+      description: description,
+      tags: [],
+      order: nextOrder,
+    );
+    _mockCards[columnId] = [...cards, newCard];
+    return newCard;
+  }
+
+  Future<void> moveCard(
+    String cardId,
+    String fromColumnId,
+    String toColumnId,
+  ) async {
+    final fromCards = _mockCards[fromColumnId] ?? [];
+    final cardIndex = fromCards.indexWhere((c) => c.id == cardId);
+
+    if (cardIndex != -1) {
+      final card = fromCards.removeAt(cardIndex);
+      final updatedCard = card.copyWith(columnId: toColumnId);
+
+      final toCards = _mockCards[toColumnId] ?? [];
+      _mockCards[fromColumnId] = List.from(fromCards);
+      _mockCards[toColumnId] = [...toCards, updatedCard];
+    }
+  }
+
+  Future<void> updateCard(BoardCard card) async {
+    final cards = _mockCards[card.columnId] ?? [];
+    final index = cards.indexWhere((c) => c.id == card.id);
+    if (index != -1) {
+      cards[index] = card;
+      _mockCards[card.columnId] = List.from(cards);
+    }
+  }
+
+  Future<void> deleteCard(String columnId, String cardId) async {
+    final cards = _mockCards[columnId] ?? [];
+    cards.removeWhere((c) => c.id == cardId);
+    _mockCards[columnId] = List.from(cards);
+  }
+}
