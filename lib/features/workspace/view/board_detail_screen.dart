@@ -136,7 +136,10 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
               if (context.mounted) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (context.mounted) {
-                    AppNotifications.showSuccess(context, 'Column added successfully');
+                    AppNotifications.showSuccess(
+                      context,
+                      'Column added successfully',
+                    );
                   }
                 });
               }
@@ -151,7 +154,10 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
               if (context.mounted) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (context.mounted) {
-                    AppNotifications.showSuccess(context, 'Column updated successfully');
+                    AppNotifications.showSuccess(
+                      context,
+                      'Column updated successfully',
+                    );
                   }
                 });
               }
@@ -244,11 +250,15 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
                                       .read(workspaceNotifierProvider.notifier)
                                       .deleteColumn(widget.boardId, column.id);
                                   if (context.mounted) {
-                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                      if (context.mounted) {
-                                        AppNotifications.showSuccess(context, 'Column deleted');
-                                      }
-                                    });
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (context.mounted) {
+                                            AppNotifications.showSuccess(
+                                              context,
+                                              'Column deleted',
+                                            );
+                                          }
+                                        });
                                     Navigator.pop(context);
                                   }
                                 } finally {
@@ -331,7 +341,10 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
               if (context.mounted) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (context.mounted) {
-                    AppNotifications.showSuccess(context, 'Card added successfully');
+                    AppNotifications.showSuccess(
+                      context,
+                      'Card added successfully',
+                    );
                   }
                 });
               }
@@ -350,7 +363,10 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
               if (context.mounted) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (context.mounted) {
-                    AppNotifications.showSuccess(context, 'Card updated successfully');
+                    AppNotifications.showSuccess(
+                      context,
+                      'Card updated successfully',
+                    );
                   }
                 });
               }
@@ -452,9 +468,7 @@ class _BoardColumn extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final column = ref.watch(
-      boardDetailProvider(
-        boardId,
-      ).select((s) {
+      boardDetailProvider(boardId).select((s) {
         if (s == null) return null;
         try {
           return s.columns.firstWhere((c) => c.id == columnId);
@@ -532,9 +546,9 @@ class _BoardColumn extends ConsumerWidget {
                               ?._showColumnBottomSheet(context, column: column);
                         } else if (value == 'delete') {
                           final screenState = context
-                                  .findAncestorStateOfType<
-                                    _BoardDetailScreenState
-                                  >();
+                              .findAncestorStateOfType<
+                                _BoardDetailScreenState
+                              >();
                           if (screenState != null) {
                             screenState._showDeleteColumnConfirmation(
                               context,
@@ -570,7 +584,9 @@ class _BoardColumn extends ConsumerWidget {
                     if (index == cards.length) {
                       // Bottom drop area
                       return DragTarget<BoardCard>(
-                        key: ValueKey('dt_bottom_${column.id}'), // Bottom area key
+                        key: ValueKey(
+                          'dt_bottom_${column.id}',
+                        ), // Bottom area key
                         onWillAcceptWithDetails: (details) => true,
                         onAcceptWithDetails: (details) {
                           SystemSound.play(SystemSoundType.click);
@@ -617,7 +633,9 @@ class _BoardColumn extends ConsumerWidget {
 
                     final card = cards[index];
                     return DragTarget<BoardCard>(
-                      key: ValueKey('dt_${card.id}'), // Use unique key for the target
+                      key: ValueKey(
+                        'dt_${card.id}',
+                      ), // Use unique key for the target
                       onWillAcceptWithDetails: (details) =>
                           details.data.id != card.id,
                       onAcceptWithDetails: (details) {
@@ -676,13 +694,17 @@ class _BoardColumn extends ConsumerWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: TextButton.icon(
-                  onPressed: () => (context
-                          .findAncestorStateOfType<
-                            _BoardDetailScreenState
-                          >())
-                      ?._showCardFormBottomSheet(context, ref, column),
+                  onPressed: () =>
+                      (context
+                              .findAncestorStateOfType<
+                                _BoardDetailScreenState
+                              >())
+                          ?._showCardFormBottomSheet(context, ref, column),
                   icon: const Icon(Icons.add),
                   label: const Text('Add Card'),
                 ),
@@ -729,17 +751,17 @@ class _CardItem extends ConsumerWidget {
                       constraints: const BoxConstraints(),
                       onPressed: () {
                         final screenState = context
-                            .findAncestorStateOfType<
-                              _BoardDetailScreenState
-                            >();
+                            .findAncestorStateOfType<_BoardDetailScreenState>();
                         final columnWidget = context
                             .findAncestorWidgetOfExactType<_BoardColumn>();
                         if (screenState != null && columnWidget != null) {
                           // We need the columnId from the ancestor widget to get its data
                           final column = ref.read(
-                            boardDetailProvider(
-                              boardId,
-                            ).select((s) => s?.columns.firstWhere((c) => c.id == columnWidget.columnId)),
+                            boardDetailProvider(boardId).select(
+                              (s) => s?.columns.firstWhere(
+                                (c) => c.id == columnWidget.columnId,
+                              ),
+                            ),
                           );
                           if (column != null) {
                             screenState._showCardFormBottomSheet(
@@ -867,373 +889,387 @@ class _CardItem extends ConsumerWidget {
         return StatefulBuilder(
           builder: (context, setSheetState) => Consumer(
             builder: (context, ref, child) {
-            final detailState = ref.watch(boardDetailProvider(boardId));
-            BoardCard? currentCard;
-            if (detailState != null) {
-              for (final entry in detailState.cardsByColumn.entries) {
-                final found = entry.value.where((c) => c.id == card.id);
-                if (found.isNotEmpty) {
-                  currentCard = found.first;
-                  break;
+              final detailState = ref.watch(boardDetailProvider(boardId));
+              BoardCard? currentCard;
+              if (detailState != null) {
+                for (final entry in detailState.cardsByColumn.entries) {
+                  final found = entry.value.where((c) => c.id == card.id);
+                  if (found.isNotEmpty) {
+                    currentCard = found.first;
+                    break;
+                  }
                 }
               }
-            }
 
-            final displayCard = currentCard ?? card;
+              final displayCard = currentCard ?? card;
 
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.8,
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 12),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+              return Container(
+                height: MediaQuery.of(context).size.height * 0.8,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
                   ),
-                  Expanded(
-                    child: CustomScrollView(
-                      slivers: [
-                        SliverPadding(
-                          padding: const EdgeInsets.all(24),
-                          sliver: SliverList(
-                            delegate: SliverChildListDelegate([
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      displayCard.title,
-                                      style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    icon: const Icon(Icons.close),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'In column: ${detailState?.columns.firstWhere(
-                                      (c) => c.id == displayCard.columnId,
-                                      orElse: () => BoardColumn(id: '', boardId: '', title: '-', order: 0),
-                                    ).title ?? ""}',
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                              const SizedBox(height: 24),
-                              if (displayCard.description.isNotEmpty) ...[
-                                const Text(
-                                  'Description',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  displayCard.description,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    height: 1.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                              ],
-                              if (displayCard.tags.isNotEmpty) ...[
-                                const Text(
-                                  'Tags',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: displayCard.tags
-                                      .map((tag) => _TagBadge(tag: tag))
-                                      .toList(),
-                                ),
-                                const SizedBox(height: 24),
-                              ],
-                              if (displayCard.dueDate != null) ...[
-                                const Text(
-                                  'Deadline',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Expanded(
+                      child: CustomScrollView(
+                        slivers: [
+                          SliverPadding(
+                            padding: const EdgeInsets.all(24),
+                            sliver: SliverList(
+                              delegate: SliverChildListDelegate([
                                 Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Icon(
-                                      Icons.access_time,
-                                      size: 18,
-                                      color: Colors.redAccent,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      DateFormat(
-                                        'MMMM d, yyyy',
-                                      ).format(displayCard.dueDate!),
-                                      style: const TextStyle(
-                                        color: Colors.redAccent,
+                                    Expanded(
+                                      child: Text(
+                                        displayCard.title,
+                                        style: const TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
+                                    ),
+                                    IconButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      icon: const Icon(Icons.close),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 24),
-                              ],
-                              const Divider(),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'Comments',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                                const SizedBox(height: 8),
+                                Text(
+                                  'In column: ${detailState?.columns.firstWhere(
+                                        (c) => c.id == displayCard.columnId,
+                                        orElse: () => BoardColumn(id: '', boardId: '', title: '-', order: 0),
+                                      ).title ?? ""}',
+                                  style: TextStyle(color: Colors.grey[600]),
                                 ),
-                              ),
-                              const SizedBox(height: 16),
-                            ]),
-                          ),
-                        ),
-                        SliverPadding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          sliver: displayCard.comments.isEmpty
-                              ? const SliverToBoxAdapter(
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 20),
-                                    child: Center(
-                                      child: Text(
-                                        'No comments yet',
-                                        style: TextStyle(color: Colors.grey),
-                                      ),
+                                const SizedBox(height: 24),
+                                if (displayCard.description.isNotEmpty) ...[
+                                  const Text(
+                                    'Description',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                )
-                              : SliverList(
-                                  delegate: SliverChildBuilderDelegate(
-                                    (context, index) {
-                                      final topLevelComments = displayCard
-                                          .comments
-                                          .where((c) => c.parentId == null)
-                                          .toList();
-                                       if (index >= topLevelComments.length) {
-                                        return null;
-                                       }
-
-                                      final comment = topLevelComments[index];
-                                      final replies = displayCard.comments
-                                          .where(
-                                            (c) => c.parentId == comment.id,
-                                          )
-                                          .toList();
-
-                                      return _CommentThread(
-                                        comment: comment,
-                                        replies: replies,
-                                        boardId: boardId,
-                                        cardId: displayCard.id,
-                                        onReply: (parentId) {
-                                          setSheetState(() {
-                                            replyingToCommentId = parentId;
-                                            replyingToUserName =
-                                                comment.userName;
-                                          });
-                                          focusNode.requestFocus();
-                                        },
-                                      );
-                                    },
-                                    childCount: displayCard.comments
-                                        .where((c) => c.parentId == null)
-                                        .length,
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    displayCard.description,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                ],
+                                if (displayCard.tags.isNotEmpty) ...[
+                                  const Text(
+                                    'Tags',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: displayCard.tags
+                                        .map((tag) => _TagBadge(tag: tag))
+                                        .toList(),
+                                  ),
+                                  const SizedBox(height: 24),
+                                ],
+                                if (displayCard.dueDate != null) ...[
+                                  const Text(
+                                    'Deadline',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.access_time,
+                                        size: 18,
+                                        color: Colors.redAccent,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        DateFormat(
+                                          'MMMM d, yyyy',
+                                        ).format(displayCard.dueDate!),
+                                        style: const TextStyle(
+                                          color: Colors.redAccent,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 24),
+                                ],
+                                const Divider(),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Comments',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 100)),
-                      ],
-                    ),
-                  ),
-                  if (replyingToCommentId != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.reply,
-                            size: 14,
-                            color: AppTheme.primaryColor,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Replying to $replyingToUserName',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.primaryColor,
-                                fontWeight: FontWeight.bold,
-                              ),
+                                const SizedBox(height: 16),
+                              ]),
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 14),
-                            onPressed: () => setSheetState(() {
-                              replyingToCommentId = null;
-                              replyingToUserName = null;
-                            }),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
+                          SliverPadding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            sliver: displayCard.comments.isEmpty
+                                ? const SliverToBoxAdapter(
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 20,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          'No comments yet',
+                                          style: TextStyle(color: Colors.grey),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : SliverList(
+                                    delegate: SliverChildBuilderDelegate(
+                                      (context, index) {
+                                        final topLevelComments = displayCard
+                                            .comments
+                                            .where((c) => c.parentId == null)
+                                            .toList();
+                                        if (index >= topLevelComments.length) {
+                                          return null;
+                                        }
+
+                                        final comment = topLevelComments[index];
+                                        final replies = displayCard.comments
+                                            .where(
+                                              (c) => c.parentId == comment.id,
+                                            )
+                                            .toList();
+
+                                        return _CommentThread(
+                                          comment: comment,
+                                          replies: replies,
+                                          boardId: boardId,
+                                          cardId: displayCard.id,
+                                          onReply: (parentId) {
+                                            setSheetState(() {
+                                              replyingToCommentId = parentId;
+                                              replyingToUserName =
+                                                  comment.userName;
+                                            });
+                                            focusNode.requestFocus();
+                                          },
+                                        );
+                                      },
+                                      childCount: displayCard.comments
+                                          .where((c) => c.parentId == null)
+                                          .length,
+                                    ),
+                                  ),
+                          ),
+                          const SliverToBoxAdapter(
+                            child: SizedBox(height: 100),
                           ),
                         ],
                       ),
                     ),
-                  Container(
-                    padding: EdgeInsets.only(
-                      left: 16,
-                      right: 16,
-                      top: 12,
-                      bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, -5),
+                    if (replyingToCommentId != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: commentController,
-                            focusNode: focusNode,
-                            decoration: InputDecoration(
-                              hintText: replyingToCommentId != null
-                                  ? 'Write a reply...'
-                                  : 'Write a comment...',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(24),
-                                borderSide: BorderSide.none,
-                              ),
-                              filled: true,
-                              fillColor:
-                                  Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? Colors.grey[800]
-                                  : Colors.grey[100],
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
+                        color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.reply,
+                              size: 14,
+                              color: AppTheme.primaryColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Replying to $replyingToUserName',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                            maxLines: null,
-                          ),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 14),
+                              onPressed: () => setSheetState(() {
+                                replyingToCommentId = null;
+                                replyingToUserName = null;
+                              }),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        isSendingComment
-                            ? const Padding(
-                                padding: EdgeInsets.all(12),
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                      ),
+                    Container(
+                      padding: EdgeInsets.only(
+                        left: 16,
+                        right: 16,
+                        top: 12,
+                        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, -5),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: commentController,
+                              focusNode: focusNode,
+                              decoration: InputDecoration(
+                                hintText: replyingToCommentId != null
+                                    ? 'Write a reply...'
+                                    : 'Write a comment...',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                  borderSide: BorderSide.none,
+                                ),
+                                filled: true,
+                                fillColor:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.blue[800]
+                                    : Colors.grey[100],
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 10,
+                                ),
+                              ),
+                              maxLines: null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          isSendingComment
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                )
+                              : IconButton(
+                                  onPressed: () async {
+                                    if (commentController.text
+                                        .trim()
+                                        .isNotEmpty) {
+                                      final text = commentController.text
+                                          .trim();
+                                      final parentId = replyingToCommentId;
+
+                                      setSheetState(
+                                        () => isSendingComment = true,
+                                      );
+
+                                      try {
+                                        final userProfile = ref.read(
+                                          userProfileProvider,
+                                        );
+                                        await ref
+                                            .read(
+                                              workspaceNotifierProvider
+                                                  .notifier,
+                                            )
+                                            .addComment(
+                                              boardId: boardId,
+                                              cardId: displayCard.id,
+                                              text: text,
+                                              userId:
+                                                  userProfile?.id.toString() ??
+                                                  'mock_user',
+                                              userName:
+                                                  userProfile?.name ??
+                                                  'John Doe',
+                                              parentId: parentId,
+                                            );
+
+                                        commentController.clear();
+                                        setSheetState(() {
+                                          replyingToCommentId = null;
+                                          replyingToUserName = null;
+                                        });
+                                        focusNode.unfocus();
+
+                                        if (context.mounted) {
+                                          WidgetsBinding.instance
+                                              .addPostFrameCallback((_) {
+                                                if (context.mounted) {
+                                                  AppNotifications.showSuccess(
+                                                    context,
+                                                    'Comment posted',
+                                                  );
+                                                }
+                                              });
+                                        }
+                                      } finally {
+                                        if (context.mounted) {
+                                          setSheetState(
+                                            () => isSendingComment = false,
+                                          );
+                                        }
+                                      }
+                                    }
+                                  },
+                                  icon: const Icon(
+                                    Icons.send,
                                     color: AppTheme.primaryColor,
                                   ),
                                 ),
-                              )
-                            : IconButton(
-                                onPressed: () async {
-                                  if (commentController.text.trim().isNotEmpty) {
-                                    final text = commentController.text.trim();
-                                    final parentId = replyingToCommentId;
-
-                                    setSheetState(() => isSendingComment = true);
-
-                                    try {
-                                      final userProfile =
-                                          ref.read(userProfileProvider);
-                                      await ref
-                                          .read(workspaceNotifierProvider.notifier)
-                                          .addComment(
-                                            boardId: boardId,
-                                            cardId: displayCard.id,
-                                            text: text,
-                                            userId:
-                                                userProfile?.id.toString() ??
-                                                'mock_user',
-                                            userName:
-                                                userProfile?.name ?? 'John Doe',
-                                            parentId: parentId,
-                                          );
-
-                                      commentController.clear();
-                                      setSheetState(() {
-                                        replyingToCommentId = null;
-                                        replyingToUserName = null;
-                                      });
-                                      focusNode.unfocus();
-
-                                      if (context.mounted) {
-                                        WidgetsBinding.instance
-                                            .addPostFrameCallback((_) {
-                                          if (context.mounted) {
-                                            AppNotifications.showSuccess(
-                                              context,
-                                              'Comment posted',
-                                            );
-                                          }
-                                        });
-                                      }
-                                    } finally {
-                                      if (context.mounted) {
-                                        setSheetState(
-                                          () => isSendingComment = false,
-                                        );
-                                      }
-                                    }
-                                  }
-                                },
-                                icon: const Icon(
-                                  Icons.send,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      );
-    },
-  );
-}
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 
   void _showDeleteCardConfirmation(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
@@ -1309,11 +1345,15 @@ class _CardItem extends ConsumerWidget {
                                         card.id,
                                       );
                                   if (context.mounted) {
-                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                      if (context.mounted) {
-                                        AppNotifications.showSuccess(context, 'Card deleted');
-                                      }
-                                    });
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (context.mounted) {
+                                            AppNotifications.showSuccess(
+                                              context,
+                                              'Card deleted',
+                                            );
+                                          }
+                                        });
                                     Navigator.pop(context);
                                   }
                                 } finally {
@@ -1447,9 +1487,9 @@ class _BaseFormBottomSheetState extends State<_BaseFormBottomSheet> {
                       setState(() => _isLoading = true);
                       try {
                         await widget.onSubmit();
-                          if (mounted) {
-                            Navigator.pop(context);
-                          }
+                        if (mounted) {
+                          Navigator.pop(context);
+                        }
                       } finally {
                         if (mounted) setState(() => _isLoading = false);
                       }
@@ -1688,7 +1728,9 @@ class _CommentItem extends ConsumerWidget {
                       bottomLeft: const Radius.circular(16),
                       bottomRight: const Radius.circular(16),
                     ),
-                    border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+                    border: Border.all(
+                      color: Colors.grey.withValues(alpha: 0.1),
+                    ),
                   ),
                   child: _CommentText(text: comment.text),
                 ),
@@ -1924,13 +1966,13 @@ class _CommentItem extends ConsumerWidget {
                                   if (context.mounted) {
                                     WidgetsBinding.instance
                                         .addPostFrameCallback((_) {
-                                      if (context.mounted) {
-                                        AppNotifications.showSuccess(
-                                          context,
-                                          'Comment deleted',
-                                        );
-                                      }
-                                    });
+                                          if (context.mounted) {
+                                            AppNotifications.showSuccess(
+                                              context,
+                                              'Comment deleted',
+                                            );
+                                          }
+                                        });
                                     Navigator.pop(context);
                                   }
                                 } finally {
