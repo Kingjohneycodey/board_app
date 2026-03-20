@@ -79,32 +79,36 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
       );
     }
 
-    return _buildBoard(state);
-  }
-
-  Widget _buildBoard(BoardDetailState state) {
     if (state.columns.isEmpty) {
-      return AppEmptyState(
-        icon: Icons.view_column_outlined,
-        title: 'Empty Board',
-        description:
-            'Start by adding a column (like "To Do" or "Done") to organize your tasks.',
-        actionLabel: 'Add First Column',
-        onAction: () => _showColumnBottomSheet(context),
-      );
+      return _buildEmptyState();
     }
 
+    final columnIds = state.columns.map((c) => c.id).toList();
+    return _buildBoard(columnIds);
+  }
+
+  Widget _buildEmptyState() {
+    return AppEmptyState(
+      icon: Icons.view_column_outlined,
+      title: 'Empty Board',
+      description:
+          'Start by adding a column (like "To Do" or "Done") to organize your tasks.',
+      actionLabel: 'Add First Column',
+      onAction: () => _showColumnBottomSheet(context),
+    );
+  }
+
+  Widget _buildBoard(List<String> columnIds) {
     return ListView.builder(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.all(16),
-      itemCount: state.columns.length,
+      itemCount: columnIds.length,
       itemBuilder: (context, index) {
-        final column = state.columns[index];
-        final cards = state.cardsByColumn[column.id] ?? [];
         return _BoardColumn(
-          column: column,
-          cards: cards,
+          columnId: columnIds[index],
           boardId: widget.boardId,
+          // Use key to help Flutter identify columns during reordering
+          key: ValueKey(columnIds[index]),
         );
       },
     );
@@ -148,21 +152,280 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
       ),
     );
   }
+
+  void _showDeleteColumnConfirmation(
+    BuildContext context,
+    WidgetRef ref,
+    BoardColumn column,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setState) => Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Icon(
+                  Icons.delete_forever,
+                  size: 48,
+                  color: Colors.redAccent,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Delete Column?',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Are you sure you want to delete "${column.title}" and all its cards?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: isDeleting
+                            ? null
+                            : () => Navigator.pop(context),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: isDeleting
+                            ? null
+                            : () async {
+                                setState(() => isDeleting = true);
+                                try {
+                                  await ref
+                                      .read(workspaceNotifierProvider.notifier)
+                                      .deleteColumn(widget.boardId, column.id);
+                                  if (context.mounted) Navigator.pop(context);
+                                } finally {
+                                  if (context.mounted)
+                                    setState(() => isDeleting = false);
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: isDeleting
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'Delete',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCardFormBottomSheet(
+    BuildContext context,
+    WidgetRef ref,
+    BoardColumn column, {
+    BoardCard? card,
+  }) {
+    final titleController = TextEditingController(text: card?.title);
+    final descController = TextEditingController(text: card?.description);
+    final tagsController = TextEditingController(text: card?.tags.join(', '));
+    DateTime? selectedDate = card?.dueDate;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _BaseFormBottomSheet(
+        title: card == null ? 'Add Card' : 'Edit Card',
+        submitLabel: card == null ? 'Add' : 'Save Changes',
+        onSubmit: () async {
+          if (titleController.text.isNotEmpty) {
+            final tags = tagsController.text
+                .split(',')
+                .map((t) => t.trim())
+                .where((t) => t.isNotEmpty)
+                .toList();
+            if (card == null) {
+              await ref
+                  .read(workspaceNotifierProvider.notifier)
+                  .addCard(
+                    widget.boardId,
+                    column.id,
+                    titleController.text.trim(),
+                    descController.text.trim(),
+                    tags: tags,
+                    dueDate: selectedDate,
+                  );
+            } else {
+              await ref
+                  .read(workspaceNotifierProvider.notifier)
+                  .updateCard(
+                    widget.boardId,
+                    card.copyWith(
+                      title: titleController.text.trim(),
+                      description: descController.text.trim(),
+                      tags: tags,
+                      dueDate: selectedDate,
+                    ),
+                  );
+            }
+          }
+        },
+        child: Column(
+          children: [
+            TextField(
+              controller: titleController,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Card Title',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descController,
+              maxLines: 2,
+              decoration: InputDecoration(
+                labelText: 'Description',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: tagsController,
+              decoration: InputDecoration(
+                labelText: 'Tags (comma separated)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            StatefulBuilder(
+              builder: (context, setPickerState) {
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.calendar_today, size: 20),
+                  title: Text(
+                    selectedDate == null
+                        ? 'Set Deadline'
+                        : 'Deadline: ${DateFormat('MMM d, yyyy').format(selectedDate!)}',
+                    style: TextStyle(
+                      color: selectedDate == null ? Colors.grey : null,
+                    ),
+                  ),
+                  trailing: selectedDate != null
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () => setPickerState(() {
+                            selectedDate = null;
+                          }),
+                        )
+                      : const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate ?? DateTime.now(),
+                      firstDate: DateTime.now().subtract(
+                        const Duration(days: 365),
+                      ),
+                      lastDate: DateTime.now().add(
+                        const Duration(days: 365 * 2),
+                      ),
+                    );
+                    if (picked != null) {
+                      setPickerState(() {
+                        selectedDate = picked;
+                      });
+                    }
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _BoardColumn extends ConsumerWidget {
-  final BoardColumn column;
-  final List<BoardCard> cards;
+  final String columnId;
   final String boardId;
 
   const _BoardColumn({
-    required this.column,
-    required this.cards,
+    super.key,
+    required this.columnId,
     required this.boardId,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final column = ref.watch(
+      boardDetailProvider(
+        boardId,
+      ).select((s) => s?.columns.firstWhere((c) => c.id == columnId)),
+    );
+
+    final cards = ref.watch(
+      boardDetailProvider(
+        boardId,
+      ).select((s) => s?.cardsByColumn[columnId] ?? []),
+    );
+
+    if (column == null) return const SizedBox.shrink();
+
     return DragTarget<BoardCard>(
       onWillAcceptWithDetails: (details) => details.data.columnId != column.id,
       onAcceptWithDetails: (details) {
@@ -222,7 +485,17 @@ class _BoardColumn extends ConsumerWidget {
                                   >())
                               ?._showColumnBottomSheet(context, column: column);
                         } else if (value == 'delete') {
-                          _showDeleteColumnConfirmation(context, ref);
+                          final screenState = context
+                                  .findAncestorStateOfType<
+                                    _BoardDetailScreenState
+                                  >();
+                          if (screenState != null) {
+                            screenState._showDeleteColumnConfirmation(
+                              context,
+                              ref,
+                              column,
+                            );
+                          }
                         }
                       },
                       itemBuilder: (context) => [
@@ -343,7 +616,9 @@ class _BoardColumn extends ConsumerWidget {
                                     )
                                   : null,
                             ),
-                            _CardItem(card: card, boardId: boardId),
+                            RepaintBoundary(
+                              child: _CardItem(card: card, boardId: boardId),
+                            ),
                           ],
                         );
                       },
@@ -352,9 +627,13 @@ class _BoardColumn extends ConsumerWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: TextButton.icon(
-                  onPressed: () => _showCardFormBottomSheet(context, ref),
+                  onPressed: () => (context
+                          .findAncestorStateOfType<
+                            _BoardDetailScreenState
+                          >())
+                      ?._showCardFormBottomSheet(context, ref, column),
                   icon: const Icon(Icons.add),
                   label: const Text('Add Card'),
                 ),
@@ -363,247 +642,6 @@ class _BoardColumn extends ConsumerWidget {
           ),
         );
       },
-    );
-  }
-
-  void _showDeleteColumnConfirmation(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      useRootNavigator: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        bool isDeleting = false;
-        return StatefulBuilder(
-          builder: (context, setState) => Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Icon(
-                  Icons.delete_forever,
-                  size: 48,
-                  color: Colors.redAccent,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Delete Column?',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Are you sure you want to delete "${column.title}" and all its cards?',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 32),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: isDeleting
-                            ? null
-                            : () => Navigator.pop(context),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: isDeleting
-                            ? null
-                            : () async {
-                                setState(() => isDeleting = true);
-                                try {
-                                  await ref
-                                      .read(workspaceNotifierProvider.notifier)
-                                      .deleteColumn(boardId, column.id);
-                                  if (context.mounted) Navigator.pop(context);
-                                } finally {
-                                  if (context.mounted)
-                                    setState(() => isDeleting = false);
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: isDeleting
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text(
-                                'Delete',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showCardFormBottomSheet(
-    BuildContext context,
-    WidgetRef ref, {
-    BoardCard? card,
-  }) {
-    final titleController = TextEditingController(text: card?.title);
-    final descController = TextEditingController(text: card?.description);
-    final tagsController = TextEditingController(text: card?.tags.join(', '));
-    DateTime? selectedDate = card?.dueDate;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useRootNavigator: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _BaseFormBottomSheet(
-        title: card == null ? 'Add Card' : 'Edit Card',
-        submitLabel: card == null ? 'Add' : 'Save Changes',
-        onSubmit: () async {
-          if (titleController.text.isNotEmpty) {
-            final tags = tagsController.text
-                .split(',')
-                .map((t) => t.trim())
-                .where((t) => t.isNotEmpty)
-                .toList();
-            if (card == null) {
-              await ref
-                  .read(workspaceNotifierProvider.notifier)
-                  .addCard(
-                    boardId,
-                    column.id,
-                    titleController.text.trim(),
-                    descController.text.trim(),
-                    tags: tags,
-                    dueDate: selectedDate,
-                  );
-            } else {
-              await ref
-                  .read(workspaceNotifierProvider.notifier)
-                  .updateCard(
-                    boardId,
-                    card.copyWith(
-                      title: titleController.text.trim(),
-                      description: descController.text.trim(),
-                      tags: tags,
-                      dueDate: selectedDate,
-                    ),
-                  );
-            }
-          }
-        },
-        child: Column(
-          children: [
-            TextField(
-              controller: titleController,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: 'Card Title',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: descController,
-              maxLines: 2,
-              decoration: InputDecoration(
-                labelText: 'Description',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: tagsController,
-              decoration: InputDecoration(
-                labelText: 'Tags (comma separated)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            StatefulBuilder(
-              builder: (context, setPickerState) {
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.calendar_today, size: 20),
-                  title: Text(
-                    selectedDate == null
-                        ? 'Set Deadline'
-                        : 'Deadline: ${DateFormat('MMM d, yyyy').format(selectedDate!)}',
-                    style: TextStyle(
-                      color: selectedDate == null ? Colors.grey : null,
-                    ),
-                  ),
-                  trailing: selectedDate != null
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () => setPickerState(() {
-                            selectedDate = null;
-                          }),
-                        )
-                      : const Icon(Icons.chevron_right),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate ?? DateTime.now(),
-                      firstDate: DateTime.now().subtract(
-                        const Duration(days: 365),
-                      ),
-                      lastDate: DateTime.now().add(
-                        const Duration(days: 365 * 2),
-                      ),
-                    );
-                    if (picked != null) {
-                      setPickerState(() {
-                        selectedDate = picked;
-                      });
-                    }
-                  },
-                );
-              },
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -641,14 +679,27 @@ class _CardItem extends ConsumerWidget {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onPressed: () {
-                        final columnState = context
+                        final screenState = context
+                            .findAncestorStateOfType<
+                              _BoardDetailScreenState
+                            >();
+                        final columnWidget = context
                             .findAncestorWidgetOfExactType<_BoardColumn>();
-                        if (columnState != null) {
-                          columnState._showCardFormBottomSheet(
-                            context,
-                            ref,
-                            card: card,
+                        if (screenState != null && columnWidget != null) {
+                          // We need the columnId from the ancestor widget to get its data
+                          final column = ref.read(
+                            boardDetailProvider(
+                              boardId,
+                            ).select((s) => s?.columns.firstWhere((c) => c.id == columnWidget.columnId)),
                           );
+                          if (column != null) {
+                            screenState._showCardFormBottomSheet(
+                              context,
+                              ref,
+                              column,
+                              card: card,
+                            );
+                          }
                         }
                       },
                     ),
@@ -973,7 +1024,7 @@ class _CardItem extends ConsumerWidget {
                         horizontal: 16,
                         vertical: 8,
                       ),
-                      color: AppTheme.primaryColor.withOpacity(0.05),
+                      color: AppTheme.primaryColor.withValues(alpha: 0.05),
                       child: Row(
                         children: [
                           const Icon(
@@ -1459,7 +1510,7 @@ class _CommentItem extends ConsumerWidget {
             offset: Offset(0, isReply ? 9.0 : 4.0),
             child: CircleAvatar(
               radius: isReply ? 14 : 18,
-              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
               child: Text(
                 comment.userName.isNotEmpty
                     ? comment.userName[0].toUpperCase()
@@ -1538,7 +1589,7 @@ class _CommentItem extends ConsumerWidget {
                       bottomLeft: const Radius.circular(16),
                       bottomRight: const Radius.circular(16),
                     ),
-                    border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                    border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
                   ),
                   child: _CommentText(text: comment.text),
                 ),

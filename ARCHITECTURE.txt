@@ -1,0 +1,33 @@
+ARCHITECTURE AND PERFORMANCE NOTES
+=================================
+
+1. State Management with Riverpod
+----------------------------------
+The application uses Flutter Riverpod for granular state management. 
+To support 200+ cards effectively, the following optimizations are implemented:
+- Granular selectors (using `ref.watch(provider.select(...))`) to ensure widgets 
+  only rebuild when their specific data changes.
+- Avoided top-level Board rebuilds when a single card deep in a column's list is updated.
+
+2. UI Virtualization
+--------------------
+- Horizontal Scroll (Columns): Uses `ListView.builder` to only build and layout 
+  the columns currently visible on screen.
+- Vertical Scroll (Cards): Each column uses its own `ListView.builder` to manage 
+  card virtualization. This is critical for columns with 100+ cards.
+
+3. Rebuild Minimization
+------------------------
+- `_BoardColumn` is refactored to watch its own cards list independently 
+  from the parent board view.
+- `_CardItem` caches UI elements and uses `const` widgets where possible 
+  to skip rebuild phases when the parent column refreshes.
+- Drag-and-drop logic uses efficient `DragTarget` coordinates and updates 
+  state only at the end of the operation to prevent jitter.
+
+4. Image and Asset Management
+-----------------------------
+- All user avatars and board assets use `CachedNetworkImage` to optimize 
+  memory usage and avoid repeated network requests.
+- Subtle animations use optimized `ImplicitlyAnimatedWidget` to minimize 
+  frame drops.
