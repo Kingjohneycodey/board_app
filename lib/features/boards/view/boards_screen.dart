@@ -5,6 +5,8 @@ import 'package:board_app/core/theme/app_theme.dart';
 import 'package:board_app/core/widgets/app_state_widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:board_app/core/widgets/app_skeletons.dart';
+import 'package:board_app/core/widgets/app_notifications.dart';
 
 class BoardsScreen extends ConsumerWidget {
   const BoardsScreen({super.key});
@@ -45,11 +47,7 @@ class BoardsScreen extends ConsumerWidget {
                       ),
                     ),
               loading: () => const SliverFillRemaining(
-                child: Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
-                  ),
-                ),
+                child: BoardListSkeleton(),
               ),
               error: (err, stack) => SliverFillRemaining(
                 child: AppErrorWidget(
@@ -108,6 +106,7 @@ class BoardsScreen extends ConsumerWidget {
           await ref
               .read(boardNotifierProvider.notifier)
               .addBoard(title, description);
+          if (context.mounted) AppNotifications.showSuccess(context, 'Board created successfully');
         },
       ),
     );
@@ -219,6 +218,7 @@ class _BoardCard extends ConsumerWidget {
           await ref
               .read(boardNotifierProvider.notifier)
               .updateBoard(board.id, title, description);
+          if (context.mounted) AppNotifications.showSuccess(context, 'Board updated successfully');
         },
       ),
     );
@@ -297,7 +297,10 @@ class _BoardCard extends ConsumerWidget {
                                     await ref
                                         .read(boardNotifierProvider.notifier)
                                         .deleteBoard(board.id);
-                                    if (context.mounted) Navigator.pop(context);
+                                    if (context.mounted) {
+                                      AppNotifications.showSuccess(context, 'Board deleted');
+                                      Navigator.pop(context);
+                                    }
                                   } finally {
                                     if (context.mounted) {
                                       setState(() => isDeleting = false);

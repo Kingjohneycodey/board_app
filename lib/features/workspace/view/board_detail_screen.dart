@@ -9,6 +9,8 @@ import 'package:board_app/core/theme/app_theme.dart';
 import 'package:board_app/core/widgets/app_state_widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:board_app/core/services/realtime_service.dart';
+import 'package:board_app/core/widgets/app_skeletons.dart';
+import 'package:board_app/core/widgets/app_notifications.dart';
 
 class BoardDetailScreen extends ConsumerStatefulWidget {
   final String boardId;
@@ -63,10 +65,11 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
 
   Widget _buildBody(BoardDetailState? state) {
     if (state == null || state.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
-        ),
+      return ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: 3,
+        padding: const EdgeInsets.all(16),
+        itemBuilder: (context, index) => const ColumnSkeleton(),
       );
     }
 
@@ -130,6 +133,9 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
               await ref
                   .read(workspaceNotifierProvider.notifier)
                   .addColumn(widget.boardId, controller.text.trim());
+              if (context.mounted) {
+                AppNotifications.showSuccess(context, 'Column added successfully');
+              }
             } else {
               await ref
                   .read(workspaceNotifierProvider.notifier)
@@ -138,6 +144,9 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
                     column.id,
                     controller.text.trim(),
                   );
+              if (context.mounted) {
+                AppNotifications.showSuccess(context, 'Column updated successfully');
+              }
             }
           }
         },
@@ -226,10 +235,14 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
                                   await ref
                                       .read(workspaceNotifierProvider.notifier)
                                       .deleteColumn(widget.boardId, column.id);
-                                  if (context.mounted) Navigator.pop(context);
+                                  if (context.mounted) {
+                                    AppNotifications.showSuccess(context, 'Column deleted');
+                                    Navigator.pop(context);
+                                  }
                                 } finally {
-                                  if (context.mounted)
+                                  if (context.mounted) {
                                     setState(() => isDeleting = false);
+                                  }
                                 }
                               },
                         style: ElevatedButton.styleFrom(
@@ -303,6 +316,9 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
                     tags: tags,
                     dueDate: selectedDate,
                   );
+              if (context.mounted) {
+                AppNotifications.showSuccess(context, 'Card added successfully');
+              }
             } else {
               await ref
                   .read(workspaceNotifierProvider.notifier)
@@ -315,6 +331,9 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
                       dueDate: selectedDate,
                     ),
                   );
+              if (context.mounted) {
+                AppNotifications.showSuccess(context, 'Card updated successfully');
+              }
             }
           }
         },
@@ -1126,6 +1145,9 @@ class _CardItem extends ConsumerWidget {
                                     userName: userProfile?.name ?? 'John Doe',
                                     parentId: parentId,
                                   );
+                              if (context.mounted) {
+                                AppNotifications.showSuccess(context, 'Comment posted');
+                              }
                             }
                           },
                           icon: const Icon(
@@ -1218,7 +1240,10 @@ class _CardItem extends ConsumerWidget {
                                         card.columnId,
                                         card.id,
                                       );
-                                  if (context.mounted) Navigator.pop(context);
+                                  if (context.mounted) {
+                                    AppNotifications.showSuccess(context, 'Card deleted');
+                                    Navigator.pop(context);
+                                  }
                                 } finally {
                                   if (context.mounted) {
                                     setState(() => isDeleting = false);
