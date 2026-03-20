@@ -862,9 +862,11 @@ class _CardItem extends ConsumerWidget {
       isScrollControlled: true,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => Consumer(
-          builder: (context, ref, child) {
+      builder: (context) {
+        bool isSendingComment = false;
+        return StatefulBuilder(
+          builder: (context, setSheetState) => Consumer(
+            builder: (context, ref, child) {
             final detailState = ref.watch(boardDetailProvider(boardId));
             BoardCard? currentCard;
             if (detailState != null) {
@@ -1151,45 +1153,75 @@ class _CardItem extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        IconButton(
-                          onPressed: () async {
-                            if (commentController.text.trim().isNotEmpty) {
-                              final text = commentController.text.trim();
-                              final parentId = replyingToCommentId;
-                              commentController.clear();
-                              setSheetState(() {
-                                replyingToCommentId = null;
-                                replyingToUserName = null;
-                              });
-                              focusNode.unfocus();
+                        isSendingComment
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                              )
+                            : IconButton(
+                                onPressed: () async {
+                                  if (commentController.text.trim().isNotEmpty) {
+                                    final text = commentController.text.trim();
+                                    final parentId = replyingToCommentId;
 
-                              final userProfile = ref.read(userProfileProvider);
-                              await ref
-                                  .read(workspaceNotifierProvider.notifier)
-                                  .addComment(
-                                    boardId: boardId,
-                                    cardId: displayCard.id,
-                                    text: text,
-                                    userId:
-                                        userProfile?.id.toString() ??
-                                        'mock_user',
-                                    userName: userProfile?.name ?? 'John Doe',
-                                    parentId: parentId,
-                                  );
-                              if (context.mounted) {
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  if (context.mounted) {
-                                    AppNotifications.showSuccess(context, 'Comment posted');
+                                    setSheetState(() => isSendingComment = true);
+
+                                    try {
+                                      final userProfile =
+                                          ref.read(userProfileProvider);
+                                      await ref
+                                          .read(workspaceNotifierProvider.notifier)
+                                          .addComment(
+                                            boardId: boardId,
+                                            cardId: displayCard.id,
+                                            text: text,
+                                            userId:
+                                                userProfile?.id.toString() ??
+                                                'mock_user',
+                                            userName:
+                                                userProfile?.name ?? 'John Doe',
+                                            parentId: parentId,
+                                          );
+
+                                      commentController.clear();
+                                      setSheetState(() {
+                                        replyingToCommentId = null;
+                                        replyingToUserName = null;
+                                      });
+                                      focusNode.unfocus();
+
+                                      if (context.mounted) {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                          if (context.mounted) {
+                                            AppNotifications.showSuccess(
+                                              context,
+                                              'Comment posted',
+                                            );
+                                          }
+                                        });
+                                      }
+                                    } finally {
+                                      if (context.mounted) {
+                                        setSheetState(
+                                          () => isSendingComment = false,
+                                        );
+                                      }
+                                    }
                                   }
-                                });
-                              }
-                            }
-                          },
-                          icon: const Icon(
-                            Icons.send,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
+                                },
+                                icon: const Icon(
+                                  Icons.send,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
                       ],
                     ),
                   ),
@@ -1198,9 +1230,10 @@ class _CardItem extends ConsumerWidget {
             );
           },
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   void _showDeleteCardConfirmation(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
@@ -1816,34 +1849,127 @@ class _CommentItem extends ConsumerWidget {
   }
 
   void _showDeleteConfirmation(BuildContext context, WidgetRef ref) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Comment?'),
-        content: const Text('This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              ref
-                  .read(workspaceNotifierProvider.notifier)
-                  .deleteComment(
-                    boardId: boardId,
-                    cardId: cardId,
-                    commentId: comment.id,
-                  );
-              Navigator.pop(context);
-            },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.redAccent),
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setState) => Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Icon(
+                  Icons.delete_forever,
+                  size: 48,
+                  color: Colors.redAccent,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Delete Comment?',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Are you sure you want to delete this comment? This action cannot be undone.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: isDeleting
+                            ? null
+                            : () => Navigator.pop(context),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: isDeleting
+                            ? null
+                            : () async {
+                                setState(() => isDeleting = true);
+                                try {
+                                  await ref
+                                      .read(workspaceNotifierProvider.notifier)
+                                      .deleteComment(
+                                        boardId: boardId,
+                                        cardId: cardId,
+                                        commentId: comment.id,
+                                      );
+                                  if (context.mounted) {
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                      if (context.mounted) {
+                                        AppNotifications.showSuccess(
+                                          context,
+                                          'Comment deleted',
+                                        );
+                                      }
+                                    });
+                                    Navigator.pop(context);
+                                  }
+                                } finally {
+                                  if (context.mounted) {
+                                    setState(() => isDeleting = false);
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: isDeleting
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'Delete',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
