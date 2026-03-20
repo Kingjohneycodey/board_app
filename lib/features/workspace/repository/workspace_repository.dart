@@ -153,6 +153,18 @@ class WorkspaceRepository {
         }
         _mockCards[toColumnId] = toCards;
       }
+
+      _realtime.emit(RealtimeEvent(
+        type: RealtimeEventType.cardMoved,
+        boardId: 'any',
+        columnId: toColumnId,
+        cardId: cardId,
+        data: {
+          'fromColumnId': fromColumnId,
+          'toColumnId': toColumnId,
+          'toIndex': toIndex,
+        },
+      ));
     }
   }
 

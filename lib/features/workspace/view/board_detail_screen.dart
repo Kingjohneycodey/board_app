@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:board_app/features/workspace/providers/workspace_provider.dart';
 import 'package:board_app/core/models/board_models.dart';
@@ -150,6 +151,7 @@ class _BoardColumn extends ConsumerWidget {
     return DragTarget<BoardCard>(
       onWillAcceptWithDetails: (details) => details.data.columnId != column.id,
       onAcceptWithDetails: (details) {
+        SystemSound.play(SystemSoundType.click);
         ref
             .read(workspaceNotifierProvider.notifier)
             .moveCard(
@@ -236,6 +238,7 @@ class _BoardColumn extends ConsumerWidget {
                       return DragTarget<BoardCard>(
                         onWillAcceptWithDetails: (details) => true,
                         onAcceptWithDetails: (details) {
+                          SystemSound.play(SystemSoundType.click);
                           ref
                               .read(workspaceNotifierProvider.notifier)
                               .moveCard(
@@ -280,6 +283,7 @@ class _BoardColumn extends ConsumerWidget {
                       onWillAcceptWithDetails: (details) =>
                           details.data.id != card.id,
                       onAcceptWithDetails: (details) {
+                        SystemSound.play(SystemSoundType.click);
                         ref
                             .read(workspaceNotifierProvider.notifier)
                             .moveCard(
@@ -291,26 +295,31 @@ class _BoardColumn extends ConsumerWidget {
                             );
                       },
                       builder: (context, candidateData, rejectedData) {
+                        final isHovered = candidateData.isNotEmpty;
                         return Column(
                           children: [
-                            if (candidateData.isNotEmpty)
-                              Container(
-                                height: 80,
-                                margin: const EdgeInsets.only(bottom: 8),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.add_circle_outline,
-                                    color: AppTheme.primaryColor,
-                                  ),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              height: isHovered ? 80 : 0,
+                              margin: EdgeInsets.only(bottom: isHovered ? 8 : 0),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppTheme.primaryColor.withOpacity(0.3),
+                                  style: BorderStyle.solid,
                                 ),
                               ),
+                              child: isHovered
+                                  ? const Center(
+                                      child: Icon(
+                                        Icons.add_circle_outline,
+                                        color: AppTheme.primaryColor,
+                                        size: 24,
+                                      ),
+                                    )
+                                  : null,
+                            ),
                             _CardItem(card: card, boardId: boardId),
                           ],
                         );
@@ -694,10 +703,22 @@ class _CardItem extends ConsumerWidget {
 
     return LongPressDraggable<BoardCard>(
       data: card,
-      feedback: Material(
-        color: Colors.transparent,
-        child: SizedBox(width: 280, child: cardWidget),
+      feedback: Transform.rotate(
+        angle: 0.05,
+        child: Material(
+          elevation: 8,
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.transparent,
+          child: SizedBox(
+            width: 280,
+            child: Opacity(opacity: 0.9, child: cardWidget),
+          ),
+        ),
       ),
+      onDragStarted: () {
+        HapticFeedback.mediumImpact();
+        SystemSound.play(SystemSoundType.click);
+      },
       childWhenDragging: Opacity(opacity: 0.3, child: cardWidget),
       child: InkWell(
         onTap: () => _showCardDetailsBottomSheet(context, ref),
