@@ -1,9 +1,16 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:board_app/core/models/board_models.dart';
 import 'package:board_app/features/workspace/repository/workspace_repository.dart';
 import 'package:board_app/features/profile/providers/profile_provider.dart';
+import 'package:board_app/core/services/realtime_service.dart';
 
-final workspaceRepositoryProvider = Provider((ref) => WorkspaceRepository());
+final realtimeServiceProvider = Provider<RealtimeService>((ref) => SocketIoRealtimeService());
+
+final workspaceRepositoryProvider = Provider((ref) {
+  final realtime = ref.watch(realtimeServiceProvider);
+  return WorkspaceRepository(realtime);
+});
 
 class BoardDetailState {
   final List<BoardColumn> columns;
@@ -38,10 +45,31 @@ class BoardDetailState {
 
 class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
   late final WorkspaceRepository _repository;
+  late final RealtimeService _realtime;
+  StreamSubscription? _eventSubscription;
 
   @override
   Future<Map<String, BoardDetailState>> build() async {
     _repository = ref.watch(workspaceRepositoryProvider);
+    _realtime = ref.watch(realtimeServiceProvider);
+
+    // Close any previous subscription
+    _eventSubscription?.cancel();
+
+    // Listen to real-time events from other devices
+    _eventSubscription = _realtime.events.listen((event) {
+      // If we receive an update for a board we are currently watching, reload it
+      final currentMap = state.value ?? {};
+      if (currentMap.containsKey(event.boardId)) {
+        // Refresh board on external change
+        loadBoard(event.boardId, silent: true);
+      }
+    });
+
+    ref.onDispose(() {
+      _eventSubscription?.cancel();
+    });
+
     return {};
   }
 

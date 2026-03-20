@@ -5,6 +5,7 @@ import 'package:board_app/core/models/board_models.dart';
 import 'package:board_app/core/theme/app_theme.dart';
 import 'package:board_app/core/widgets/app_state_widgets.dart';
 import 'package:intl/intl.dart';
+import 'package:board_app/core/services/realtime_service.dart';
 
 class BoardDetailScreen extends ConsumerStatefulWidget {
   final String boardId;
@@ -33,6 +34,7 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
       appBar: AppBar(
         title: const Text('Board Details'),
         actions: [
+          _ConnectionStatusIndicator(),
           IconButton(
             icon: const Icon(Icons.view_column_outlined),
             onPressed: () => _showColumnBottomSheet(context),
@@ -1256,6 +1258,50 @@ class _BaseFormBottomSheetState extends State<_BaseFormBottomSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ConnectionStatusIndicator extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final realtime = ref.watch(realtimeServiceProvider);
+    return StreamBuilder<ConnectionStatus>(
+      stream: realtime.connectionStatus,
+      initialData: ConnectionStatus.connecting,
+      builder: (context, snapshot) {
+        final status = snapshot.data ?? ConnectionStatus.disconnected;
+        final color = switch (status) {
+          ConnectionStatus.connected => Colors.green,
+          ConnectionStatus.connecting => Colors.orange,
+          ConnectionStatus.disconnected => Colors.red,
+        };
+        final label = switch (status) {
+          ConnectionStatus.connected => 'Online',
+          ConnectionStatus.connecting => 'Connecting...',
+          ConnectionStatus.disconnected => 'Offline',
+        };
+
+        return Tooltip(
+          message: 'Real-time status: $label',
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.5),
+                  blurRadius: 4,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

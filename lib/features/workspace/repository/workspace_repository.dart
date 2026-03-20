@@ -1,6 +1,10 @@
 import 'package:board_app/core/models/board_models.dart';
+import 'package:board_app/core/services/realtime_service.dart';
 
 class WorkspaceRepository {
+  final RealtimeService _realtime;
+
+  WorkspaceRepository(this._realtime);
   final Map<String, List<BoardColumn>> _mockColumns = {
     '1': [
       BoardColumn(id: 'c1', boardId: '1', title: 'To Do', order: 0),
@@ -65,6 +69,14 @@ class WorkspaceRepository {
       order: nextOrder,
     );
     _mockColumns[boardId] = [...columns, newColumn];
+    
+    _realtime.emit(RealtimeEvent(
+      type: RealtimeEventType.columnAdded,
+      boardId: boardId,
+      columnId: newColumn.id,
+      data: newColumn,
+    ));
+    
     return newColumn;
   }
 
@@ -87,6 +99,15 @@ class WorkspaceRepository {
       order: nextOrder,
     );
     _mockCards[columnId] = [...cards, newCard];
+
+    _realtime.emit(RealtimeEvent(
+      type: RealtimeEventType.cardUpdated, // Using updated as a catch-all for now
+      boardId: 'any', // In a real app we'd map column to board
+      columnId: columnId,
+      cardId: newCard.id,
+      data: newCard,
+    ));
+
     return newCard;
   }
 
@@ -141,6 +162,14 @@ class WorkspaceRepository {
     if (index != -1) {
       cards[index] = card;
       _mockCards[card.columnId] = List.from(cards);
+
+      _realtime.emit(RealtimeEvent(
+        type: RealtimeEventType.cardUpdated,
+        boardId: 'any',
+        columnId: card.columnId,
+        cardId: card.id,
+        data: card,
+      ));
     }
   }
 
