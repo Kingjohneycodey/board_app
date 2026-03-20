@@ -113,11 +113,14 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
       final columns = await _repository.getColumns(boardId);
       final Map<String, List<BoardCard>> cardsMap = {};
 
-      for (final column in columns) {
-        final cards = await _repository.getCards(column.id);
-        cards.sort((a, b) => a.order.compareTo(b.order));
-        cardsMap[column.id] = cards;
-      }
+      // Fetch cards for all columns in parallel for better performance
+      await Future.wait(
+        columns.map((column) async {
+          final cards = await _repository.getCards(column.id);
+          cards.sort((a, b) => a.order.compareTo(b.order));
+          cardsMap[column.id] = cards;
+        }),
+      );
 
       final newState = BoardDetailState(
         columns: columns,
@@ -153,6 +156,7 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     DateTime? dueDate,
   }) async {
     await _repository.createCard(
+      boardId,
       columnId,
       title,
       description,
@@ -163,7 +167,7 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
   }
 
   Future<void> updateCard(String boardId, BoardCard card) async {
-    await _repository.updateCard(card);
+    await _repository.updateCard(boardId, card);
     await loadBoard(boardId, silent: true);
   }
 
@@ -227,6 +231,7 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
 
     try {
       await _repository.moveCard(
+        boardId,
         cardId,
         fromColumnId,
         toColumnId,
@@ -243,7 +248,7 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     String columnId,
     String cardId,
   ) async {
-    await _repository.deleteCard(columnId, cardId);
+    await _repository.deleteCard(boardId, columnId, cardId);
     await loadBoard(boardId, silent: true);
   }
 
@@ -271,6 +276,7 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
   }) async {
     try {
       await _repository.addComment(
+        boardId: boardId,
         cardId: cardId,
         text: text,
         userId: userId,
@@ -290,7 +296,7 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     required String newText,
   }) async {
     try {
-      await _repository.editComment(cardId, commentId, newText);
+      await _repository.editComment(boardId, cardId, commentId, newText);
       await loadBoard(boardId, silent: true);
     } catch (e) {
       debugPrint('Error editing comment: $e');
@@ -303,7 +309,7 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     required String commentId,
   }) async {
     try {
-      await _repository.deleteComment(cardId, commentId);
+      await _repository.deleteComment(boardId, cardId, commentId);
       await loadBoard(boardId, silent: true);
     } catch (e) {
       debugPrint('Error deleting comment: $e');

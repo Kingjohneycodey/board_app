@@ -99,14 +99,20 @@ class BoardsScreen extends ConsumerWidget {
       isScrollControlled: true,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _BoardFormBottomSheet(
+      builder: (sheetContext) => _BoardFormBottomSheet(
         title: 'Create New Board',
         submitLabel: 'Create',
         onSubmit: (title, description) async {
           await ref
               .read(boardNotifierProvider.notifier)
               .addBoard(title, description);
-          if (context.mounted) AppNotifications.showSuccess(context, 'Board created successfully');
+          if (context.mounted) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                AppNotifications.showSuccess(context, 'Board created successfully');
+              }
+            });
+          }
         },
       ),
     );
@@ -218,7 +224,13 @@ class _BoardCard extends ConsumerWidget {
           await ref
               .read(boardNotifierProvider.notifier)
               .updateBoard(board.id, title, description);
-          if (context.mounted) AppNotifications.showSuccess(context, 'Board updated successfully');
+          if (context.mounted) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                AppNotifications.showSuccess(context, 'Board updated successfully');
+              }
+            });
+          }
         },
       ),
     );
@@ -298,7 +310,11 @@ class _BoardCard extends ConsumerWidget {
                                         .read(boardNotifierProvider.notifier)
                                         .deleteBoard(board.id);
                                     if (context.mounted) {
-                                      AppNotifications.showSuccess(context, 'Board deleted');
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        if (context.mounted) {
+                                          AppNotifications.showSuccess(context, 'Board deleted');
+                                        }
+                                      });
                                       Navigator.pop(context);
                                     }
                                   } finally {

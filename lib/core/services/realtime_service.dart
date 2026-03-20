@@ -83,7 +83,6 @@ class SocketIoRealtimeService implements RealtimeService {
     });
 
     socket.onConnectError((err) {
-      debugPrint('Real-time connection error: $err');
       _statusController.add(ConnectionStatus.disconnected);
     });
 

@@ -115,6 +115,7 @@ class WorkspaceRepository {
   }
 
   Future<BoardCard> createCard(
+    String boardId,
     String columnId,
     String title,
     String description, {
@@ -140,7 +141,7 @@ class WorkspaceRepository {
     _realtime.emit(
       RealtimeEvent(
         type: RealtimeEventType.cardUpdated,
-        boardId: 'any',
+        boardId: boardId,
         columnId: columnId,
         cardId: newCard.id,
         data: newCard,
@@ -151,6 +152,7 @@ class WorkspaceRepository {
   }
 
   Future<void> moveCard(
+    String boardId,
     String cardId,
     String fromColumnId,
     String toColumnId, {
@@ -196,7 +198,7 @@ class WorkspaceRepository {
       _realtime.emit(
         RealtimeEvent(
           type: RealtimeEventType.cardMoved,
-          boardId: 'any',
+          boardId: boardId,
           columnId: toColumnId,
           cardId: cardId,
           data: {
@@ -209,17 +211,20 @@ class WorkspaceRepository {
     }
   }
 
-  Future<void> updateCard(BoardCard card) async {
+  Future<void> updateCard(String boardId, BoardCard card) async {
     final cards = _mockCards[card.columnId] ?? [];
     final index = cards.indexWhere((c) => c.id == card.id);
     if (index != -1) {
       cards[index] = card;
       _mockCards[card.columnId] = List.from(cards);
 
+      // Persist to storage
+      await _storage.saveCards(card.columnId, _mockCards[card.columnId]!);
+
       _realtime.emit(
         RealtimeEvent(
           type: RealtimeEventType.cardUpdated,
-          boardId: 'any',
+          boardId: boardId,
           columnId: card.columnId,
           cardId: card.id,
           data: card,
@@ -228,7 +233,7 @@ class WorkspaceRepository {
     }
   }
 
-  Future<void> deleteCard(String columnId, String cardId) async {
+  Future<void> deleteCard(String boardId, String columnId, String cardId) async {
     final cards = _mockCards[columnId] ?? [];
     cards.removeWhere((c) => c.id == cardId);
     _mockCards[columnId] = List.from(cards);
@@ -248,6 +253,7 @@ class WorkspaceRepository {
   }
 
   Future<CardComment> addComment({
+    required String boardId,
     required String cardId,
     required String text,
     required String userId,
@@ -303,7 +309,7 @@ class WorkspaceRepository {
 
     _realtime.emit(RealtimeEvent(
       type: RealtimeEventType.commentAdded,
-      boardId: 'any',
+      boardId: boardId,
       columnId: targetColumnId,
       cardId: cardId,
       data: newComment.toJson(),
@@ -312,7 +318,12 @@ class WorkspaceRepository {
     return newComment;
   }
 
-  Future<void> editComment(String cardId, String commentId, String newText) async {
+  Future<void> editComment(
+    String boardId,
+    String cardId,
+    String commentId,
+    String newText,
+  ) async {
     for (final colId in _mockCards.keys) {
       final cards = _mockCards[colId]!;
       final cardIndex = cards.indexWhere((c) => c.id == cardId);
@@ -333,7 +344,7 @@ class WorkspaceRepository {
           
           _realtime.emit(RealtimeEvent(
             type: RealtimeEventType.cardUpdated, // Using updated as generic sync
-            boardId: 'any',
+            boardId: boardId,
             columnId: colId,
             cardId: cardId,
             data: updatedCard.toJson(),
@@ -344,7 +355,11 @@ class WorkspaceRepository {
     }
   }
 
-  Future<void> deleteComment(String cardId, String commentId) async {
+  Future<void> deleteComment(
+    String boardId,
+    String cardId,
+    String commentId,
+  ) async {
     for (final colId in _mockCards.keys) {
       final cards = _mockCards[colId]!;
       final cardIndex = cards.indexWhere((c) => c.id == cardId);
@@ -359,7 +374,7 @@ class WorkspaceRepository {
         
         _realtime.emit(RealtimeEvent(
           type: RealtimeEventType.cardUpdated,
-          boardId: 'any',
+          boardId: boardId,
           columnId: colId,
           cardId: cardId,
           data: updatedCard.toJson(),

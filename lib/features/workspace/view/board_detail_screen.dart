@@ -124,7 +124,7 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
       isScrollControlled: true,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _BaseFormBottomSheet(
+      builder: (sheetContext) => _BaseFormBottomSheet(
         title: column == null ? 'Add Column' : 'Rename Column',
         submitLabel: column == null ? 'Add' : 'Rename',
         onSubmit: () async {
@@ -134,7 +134,11 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
                   .read(workspaceNotifierProvider.notifier)
                   .addColumn(widget.boardId, controller.text.trim());
               if (context.mounted) {
-                AppNotifications.showSuccess(context, 'Column added successfully');
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (context.mounted) {
+                    AppNotifications.showSuccess(context, 'Column added successfully');
+                  }
+                });
               }
             } else {
               await ref
@@ -145,7 +149,11 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
                     controller.text.trim(),
                   );
               if (context.mounted) {
-                AppNotifications.showSuccess(context, 'Column updated successfully');
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (context.mounted) {
+                    AppNotifications.showSuccess(context, 'Column updated successfully');
+                  }
+                });
               }
             }
           }
@@ -236,7 +244,11 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
                                       .read(workspaceNotifierProvider.notifier)
                                       .deleteColumn(widget.boardId, column.id);
                                   if (context.mounted) {
-                                    AppNotifications.showSuccess(context, 'Column deleted');
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      if (context.mounted) {
+                                        AppNotifications.showSuccess(context, 'Column deleted');
+                                      }
+                                    });
                                     Navigator.pop(context);
                                   }
                                 } finally {
@@ -295,7 +307,7 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
       isScrollControlled: true,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _BaseFormBottomSheet(
+      builder: (sheetContext) => _BaseFormBottomSheet(
         title: card == null ? 'Add Card' : 'Edit Card',
         submitLabel: card == null ? 'Add' : 'Save Changes',
         onSubmit: () async {
@@ -317,7 +329,11 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
                     dueDate: selectedDate,
                   );
               if (context.mounted) {
-                AppNotifications.showSuccess(context, 'Card added successfully');
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (context.mounted) {
+                    AppNotifications.showSuccess(context, 'Card added successfully');
+                  }
+                });
               }
             } else {
               await ref
@@ -332,7 +348,11 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
                     ),
                   );
               if (context.mounted) {
-                AppNotifications.showSuccess(context, 'Card updated successfully');
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (context.mounted) {
+                    AppNotifications.showSuccess(context, 'Card updated successfully');
+                  }
+                });
               }
             }
           }
@@ -434,7 +454,14 @@ class _BoardColumn extends ConsumerWidget {
     final column = ref.watch(
       boardDetailProvider(
         boardId,
-      ).select((s) => s?.columns.firstWhere((c) => c.id == columnId)),
+      ).select((s) {
+        if (s == null) return null;
+        try {
+          return s.columns.firstWhere((c) => c.id == columnId);
+        } catch (_) {
+          return null;
+        }
+      }),
     );
 
     final cards = ref.watch(
@@ -543,6 +570,7 @@ class _BoardColumn extends ConsumerWidget {
                     if (index == cards.length) {
                       // Bottom drop area
                       return DragTarget<BoardCard>(
+                        key: ValueKey('dt_bottom_${column.id}'), // Bottom area key
                         onWillAcceptWithDetails: (details) => true,
                         onAcceptWithDetails: (details) {
                           SystemSound.play(SystemSoundType.click);
@@ -589,6 +617,7 @@ class _BoardColumn extends ConsumerWidget {
 
                     final card = cards[index];
                     return DragTarget<BoardCard>(
+                      key: ValueKey('dt_${card.id}'), // Use unique key for the target
                       onWillAcceptWithDetails: (details) =>
                           details.data.id != card.id,
                       onAcceptWithDetails: (details) {
@@ -636,6 +665,7 @@ class _BoardColumn extends ConsumerWidget {
                                   : null,
                             ),
                             RepaintBoundary(
+                              key: ValueKey(card.id),
                               child: _CardItem(card: card, boardId: boardId),
                             ),
                           ],
@@ -1002,8 +1032,9 @@ class _CardItem extends ConsumerWidget {
                                           .comments
                                           .where((c) => c.parentId == null)
                                           .toList();
-                                      if (index >= topLevelComments.length)
+                                       if (index >= topLevelComments.length) {
                                         return null;
+                                       }
 
                                       final comment = topLevelComments[index];
                                       final replies = displayCard.comments
@@ -1146,7 +1177,11 @@ class _CardItem extends ConsumerWidget {
                                     parentId: parentId,
                                   );
                               if (context.mounted) {
-                                AppNotifications.showSuccess(context, 'Comment posted');
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (context.mounted) {
+                                    AppNotifications.showSuccess(context, 'Comment posted');
+                                  }
+                                });
                               }
                             }
                           },
@@ -1241,7 +1276,11 @@ class _CardItem extends ConsumerWidget {
                                         card.id,
                                       );
                                   if (context.mounted) {
-                                    AppNotifications.showSuccess(context, 'Card deleted');
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      if (context.mounted) {
+                                        AppNotifications.showSuccess(context, 'Card deleted');
+                                      }
+                                    });
                                     Navigator.pop(context);
                                   }
                                 } finally {
@@ -1375,7 +1414,9 @@ class _BaseFormBottomSheetState extends State<_BaseFormBottomSheet> {
                       setState(() => _isLoading = true);
                       try {
                         await widget.onSubmit();
-                        if (mounted) Navigator.pop(context);
+                          if (mounted) {
+                            Navigator.pop(context);
+                          }
                       } finally {
                         if (mounted) setState(() => _isLoading = false);
                       }
