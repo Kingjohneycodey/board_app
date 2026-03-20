@@ -27,7 +27,7 @@ class ProfileScreen extends ConsumerWidget {
                 child: Center(
                   child: CircleAvatar(
                     radius: 50,
-                    backgroundColor: Colors.white.withOpacity(0.2),
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
                     child: const Icon(
                       Icons.person,
                       size: 60,
@@ -103,7 +103,9 @@ class ProfileScreen extends ConsumerWidget {
                     child: ElevatedButton(
                       onPressed: () => _showLogoutConfirmation(context, ref),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent.withOpacity(0.1),
+                        backgroundColor: Colors.redAccent.withValues(
+                          alpha: 0.1,
+                        ),
                         foregroundColor: Colors.redAccent,
                         elevation: 0,
                         shape: RoundedRectangleBorder(

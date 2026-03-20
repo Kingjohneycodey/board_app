@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:board_app/features/workspace/providers/workspace_provider.dart';
+import 'package:board_app/features/boards/providers/board_provider.dart';
 import 'package:board_app/core/models/board_models.dart';
 import 'package:board_app/core/theme/app_theme.dart';
 import 'package:board_app/core/widgets/app_state_widgets.dart';
@@ -30,10 +31,14 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final detailState = ref.watch(boardDetailProvider(widget.boardId));
+    final board = ref.watch(boardNotifierProvider).value?.firstWhere(
+          (b) => b.id == widget.boardId,
+          orElse: () => Board(id: '', title: 'Board Details', description: '', createdAt: DateTime.now(), ownerId: ''),
+        );
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Board Details'),
+        title: Text(board?.title ?? 'Board Details'),
         actions: [
           _ConnectionStatusIndicator(),
           IconButton(
@@ -167,9 +172,9 @@ class _BoardColumn extends ConsumerWidget {
           margin: const EdgeInsets.only(right: 16),
           decoration: BoxDecoration(
             color: candidateData.isNotEmpty
-                ? AppTheme.primaryColor.withOpacity(0.1)
+                ? AppTheme.primaryColor.withValues(alpha: 0.1)
                 : (Theme.of(context).brightness == Brightness.dark
-                      ? Colors.grey[900]?.withOpacity(0.5)
+                      ? Colors.grey[900]?.withValues(alpha: 0.5)
                       : Colors.grey[100]),
             borderRadius: BorderRadius.circular(16),
             border: candidateData.isNotEmpty
@@ -256,7 +261,9 @@ class _BoardColumn extends ConsumerWidget {
                               margin: const EdgeInsets.only(top: 8),
                               decoration: BoxDecoration(
                                 color: candidateData.isNotEmpty
-                                    ? AppTheme.primaryColor.withOpacity(0.1)
+                                    ? AppTheme.primaryColor.withValues(
+                                        alpha: 0.1,
+                                      )
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
                                 border: candidateData.isNotEmpty
@@ -301,12 +308,18 @@ class _BoardColumn extends ConsumerWidget {
                             AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
                               height: isHovered ? 80 : 0,
-                              margin: EdgeInsets.only(bottom: isHovered ? 8 : 0),
+                              margin: EdgeInsets.only(
+                                bottom: isHovered ? 8 : 0,
+                              ),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withOpacity(0.05),
+                                color: AppTheme.primaryColor.withValues(
+                                  alpha: 0.05,
+                                ),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: AppTheme.primaryColor.withOpacity(0.3),
+                                  color: AppTheme.primaryColor.withValues(
+                                    alpha: 0.3,
+                                  ),
                                   style: BorderStyle.solid,
                                 ),
                               ),
@@ -912,7 +925,7 @@ class _CardItem extends ConsumerWidget {
                                         CircleAvatar(
                                           radius: 16,
                                           backgroundColor: AppTheme.primaryColor
-                                              .withOpacity(0.1),
+                                              .withValues(alpha: 0.1),
                                           child: Text(
                                             comment.userName.isNotEmpty
                                                 ? comment.userName[0]
@@ -985,7 +998,7 @@ class _CardItem extends ConsumerWidget {
                     color: Theme.of(context).cardColor,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 10,
                         offset: const Offset(0, -5),
                       ),
@@ -1166,7 +1179,7 @@ class _TagBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withOpacity(0.1),
+        color: AppTheme.primaryColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -1314,7 +1327,7 @@ class _ConnectionStatusIndicator extends ConsumerWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity(0.5),
+                  color: color.withValues(alpha: 0.5),
                   blurRadius: 4,
                   spreadRadius: 2,
                 ),

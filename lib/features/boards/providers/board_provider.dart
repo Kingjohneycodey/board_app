@@ -1,8 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:board_app/core/models/board_models.dart';
 import 'package:board_app/features/boards/repository/board_repository.dart';
+import 'package:board_app/features/workspace/providers/workspace_provider.dart';
 
-final boardRepositoryProvider = Provider((ref) => BoardRepository());
+final boardRepositoryProvider = Provider((ref) {
+  final storage = ref.watch(boardStorageProvider);
+  final realtime = ref.watch(realtimeServiceProvider);
+  return BoardRepository(storage, realtime);
+});
 
 class BoardNotifier extends AsyncNotifier<List<Board>> {
   @override

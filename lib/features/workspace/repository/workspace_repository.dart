@@ -1,62 +1,91 @@
 import 'package:board_app/core/models/board_models.dart';
 import 'package:board_app/core/services/realtime_service.dart';
+import 'package:board_app/core/services/board_storage_service.dart';
 
 class WorkspaceRepository {
   final RealtimeService _realtime;
+  final BoardStorageService _storage;
 
-  WorkspaceRepository(this._realtime);
+  WorkspaceRepository(this._realtime, this._storage);
   final Map<String, List<BoardColumn>> _mockColumns = {
-    '1': [
-      BoardColumn(id: 'c1', boardId: '1', title: 'To Do', order: 0),
-      BoardColumn(id: 'c2', boardId: '1', title: 'In Progress', order: 1),
-      BoardColumn(id: 'c3', boardId: '1', title: 'Done', order: 2),
-    ],
+    // '1': [
+    //   BoardColumn(id: 'c1', boardId: '1', title: 'To Do', order: 0),
+    //   BoardColumn(id: 'c2', boardId: '1', title: 'In Progress', order: 1),
+    //   BoardColumn(id: 'c3', boardId: '1', title: 'Done', order: 2),
+    // ],
   };
 
   final Map<String, List<BoardCard>> _mockCards = {
-    'c1': [
-      BoardCard(
-        id: 'k1',
-        columnId: 'c1',
-        title: 'Design UI Mockups',
-        description:
-            'Create high-fidelity mockups for the new mobile app dashboard.',
-        tags: ['Design', 'Mobile'],
-        dueDate: DateTime.now().add(const Duration(days: 3)),
-        order: 0,
-      ),
-      BoardCard(
-        id: 'k2',
-        columnId: 'c1',
-        title: 'Set up CI/CD',
-        description:
-            'Configure GitHub Actions for automated testing and deployment.',
-        tags: ['DevOps'],
-        order: 1,
-      ),
-    ],
-    'c2': [
-      BoardCard(
-        id: 'k3',
-        columnId: 'c2',
-        title: 'API Integration',
-        description: 'Implement the authentication flow using JWT.',
-        tags: ['Backend'],
-        dueDate: DateTime.now().add(const Duration(days: 1)),
-        order: 0,
-      ),
-    ],
-    'c3': [],
+    // 'c1': [
+    //   BoardCard(
+    //     id: 'k1',
+    //     columnId: 'c1',
+    //     title: 'Design UI Mockups',
+    //     description:
+    //         'Create high-fidelity mockups for the new mobile app dashboard.',
+    //     tags: ['Design', 'Mobile'],
+    //     dueDate: DateTime.now().add(const Duration(days: 3)),
+    //     order: 0,
+    //   ),
+    //   BoardCard(
+    //     id: 'k2',
+    //     columnId: 'c1',
+    //     title: 'Set up CI/CD',
+    //     description:
+    //         'Configure GitHub Actions for automated testing and deployment.',
+    //     tags: ['DevOps'],
+    //     order: 1,
+    //   ),
+    // ],
+    // 'c2': [
+    //   BoardCard(
+    //     id: 'k3',
+    //     columnId: 'c2',
+    //     title: 'API Integration',
+    //     description: 'Implement the authentication flow using JWT.',
+    //     tags: ['Backend'],
+    //     dueDate: DateTime.now().add(const Duration(days: 1)),
+    //     order: 0,
+    //   ),
+    // ],
+    // 'c3': [],
   };
 
   Future<List<BoardColumn>> getColumns(String boardId) async {
+    // Try to load from cache first
+    final cached = _storage.getColumns(boardId);
+    if (cached.isNotEmpty) {
+      // Background update mock
+      _mockColumns[boardId] = List.from(cached);
+    }
+
     await Future.delayed(const Duration(milliseconds: 500));
-    return List.from(_mockColumns[boardId] ?? []);
+    final columns = List.from(_mockColumns[boardId] ?? []);
+
+    // Update cache
+    if (columns.isNotEmpty) {
+      await _storage.saveColumns(boardId, columns.cast<BoardColumn>());
+    }
+
+    return columns.cast<BoardColumn>();
   }
 
   Future<List<BoardCard>> getCards(String columnId) async {
+    // Try to load from cache first
+    final cached = _storage.getCards(columnId);
+    if (cached.isNotEmpty) {
+      _mockCards[columnId] = List.from(cached);
+    }
+
     await Future.delayed(const Duration(milliseconds: 300));
-    return List.from(_mockCards[columnId] ?? []);
+    final cards = List.from(_mockCards[columnId] ?? []);
+
+    // Update cache
+    if (cards.isNotEmpty) {
+      await _storage.saveCards(columnId, cards.cast<BoardCard>());
+    }
+
+    return cards.cast<BoardCard>();
   }
 
   Future<BoardColumn> createColumn(String boardId, String title) async {
@@ -69,14 +98,19 @@ class WorkspaceRepository {
       order: nextOrder,
     );
     _mockColumns[boardId] = [...columns, newColumn];
-    
-    _realtime.emit(RealtimeEvent(
-      type: RealtimeEventType.columnAdded,
-      boardId: boardId,
-      columnId: newColumn.id,
-      data: newColumn,
-    ));
-    
+
+    // Persist to storage
+    await _storage.saveColumns(boardId, _mockColumns[boardId]!);
+
+    _realtime.emit(
+      RealtimeEvent(
+        type: RealtimeEventType.columnAdded,
+        boardId: boardId,
+        columnId: newColumn.id,
+        data: newColumn,
+      ),
+    );
+
     return newColumn;
   }
 
@@ -100,13 +134,18 @@ class WorkspaceRepository {
     );
     _mockCards[columnId] = [...cards, newCard];
 
-    _realtime.emit(RealtimeEvent(
-      type: RealtimeEventType.cardUpdated, // Using updated as a catch-all for now
-      boardId: 'any', // In a real app we'd map column to board
-      columnId: columnId,
-      cardId: newCard.id,
-      data: newCard,
-    ));
+    // Persist to storage
+    await _storage.saveCards(columnId, _mockCards[columnId]!);
+
+    _realtime.emit(
+      RealtimeEvent(
+        type: RealtimeEventType.cardUpdated,
+        boardId: 'any',
+        columnId: columnId,
+        cardId: newCard.id,
+        data: newCard,
+      ),
+    );
 
     return newCard;
   }
@@ -154,17 +193,19 @@ class WorkspaceRepository {
         _mockCards[toColumnId] = toCards;
       }
 
-      _realtime.emit(RealtimeEvent(
-        type: RealtimeEventType.cardMoved,
-        boardId: 'any',
-        columnId: toColumnId,
-        cardId: cardId,
-        data: {
-          'fromColumnId': fromColumnId,
-          'toColumnId': toColumnId,
-          'toIndex': toIndex,
-        },
-      ));
+      _realtime.emit(
+        RealtimeEvent(
+          type: RealtimeEventType.cardMoved,
+          boardId: 'any',
+          columnId: toColumnId,
+          cardId: cardId,
+          data: {
+            'fromColumnId': fromColumnId,
+            'toColumnId': toColumnId,
+            'toIndex': toIndex,
+          },
+        ),
+      );
     }
   }
 
@@ -175,13 +216,15 @@ class WorkspaceRepository {
       cards[index] = card;
       _mockCards[card.columnId] = List.from(cards);
 
-      _realtime.emit(RealtimeEvent(
-        type: RealtimeEventType.cardUpdated,
-        boardId: 'any',
-        columnId: card.columnId,
-        cardId: card.id,
-        data: card,
-      ));
+      _realtime.emit(
+        RealtimeEvent(
+          type: RealtimeEventType.cardUpdated,
+          boardId: 'any',
+          columnId: card.columnId,
+          cardId: card.id,
+          data: card,
+        ),
+      );
     }
   }
 

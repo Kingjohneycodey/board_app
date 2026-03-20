@@ -104,6 +104,5 @@ class TokenStorageService {
     await _prefs.remove(_userIdKey);
     await _prefs.remove(_userEmailKey);
     await _prefs.remove(_userDataKey);
-    // Note: We don't clear onboarding status on logout
   }
 }

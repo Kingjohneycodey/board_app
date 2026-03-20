@@ -4,12 +4,22 @@ import 'package:board_app/core/models/board_models.dart';
 import 'package:board_app/features/workspace/repository/workspace_repository.dart';
 import 'package:board_app/features/profile/providers/profile_provider.dart';
 import 'package:board_app/core/services/realtime_service.dart';
+import 'package:board_app/core/services/board_storage_service.dart';
+import 'package:board_app/features/auth/providers/auth_provider.dart';
 
-final realtimeServiceProvider = Provider<RealtimeService>((ref) => SocketIoRealtimeService());
+final realtimeServiceProvider = Provider<RealtimeService>(
+  (ref) => SocketIoRealtimeService(),
+);
+
+final boardStorageProvider = Provider<BoardStorageService>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return BoardStorageService(prefs);
+});
 
 final workspaceRepositoryProvider = Provider((ref) {
   final realtime = ref.watch(realtimeServiceProvider);
-  return WorkspaceRepository(realtime);
+  final storage = ref.watch(boardStorageProvider);
+  return WorkspaceRepository(realtime, storage);
 });
 
 class BoardDetailState {
@@ -70,7 +80,26 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
       _eventSubscription?.cancel();
     });
 
+    // Listen to connection status changes for automatic re-sync
+    _realtime.connectionStatus.listen((status) {
+      if (status == ConnectionStatus.connected) {
+        _resyncPendingActions();
+      }
+    });
+
     return {};
+  }
+
+  Future<void> _resyncPendingActions() async {
+    final storage = ref.read(boardStorageProvider);
+    final pending = storage.getPendingActions();
+    if (pending.isEmpty) return;
+
+    await storage.clearPendingActions();
+
+    state.value?.keys.forEach((boardId) {
+      loadBoard(boardId, silent: true);
+    });
   }
 
   Future<void> loadBoard(String boardId, {bool silent = false}) async {
@@ -154,7 +183,6 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     final boardState = currentMap[boardId];
     if (boardState == null) return;
 
-    // Optimistic Update
     final updatedCardsByColumn = Map<String, List<BoardCard>>.from(
       boardState.cardsByColumn,
     );
@@ -207,7 +235,6 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     });
 
     try {
-      // Note: Backend should eventually support index-based moving
       await _repository.moveCard(
         cardId,
         fromColumnId,
