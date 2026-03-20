@@ -99,6 +99,9 @@ class CardComment {
   final String userName;
   final String text;
   final DateTime createdAt;
+  final String? parentId; // For threaded comments
+  final bool isEdited;
+  final List<String> mentions;
 
   CardComment({
     required this.id,
@@ -107,6 +110,9 @@ class CardComment {
     required this.userName,
     required this.text,
     required this.createdAt,
+    this.parentId,
+    this.isEdited = false,
+    this.mentions = const [],
   });
 
   factory CardComment.fromJson(Map<String, dynamic> json) {
@@ -117,6 +123,9 @@ class CardComment {
       userName: json['userName'],
       text: json['text'],
       createdAt: DateTime.parse(json['createdAt']),
+      parentId: json['parentId'],
+      isEdited: json['isEdited'] ?? false,
+      mentions: List<String>.from(json['mentions'] ?? []),
     );
   }
 
@@ -127,6 +136,9 @@ class CardComment {
     'userName': userName,
     'text': text,
     'createdAt': createdAt.toIso8601String(),
+    'parentId': parentId,
+    'isEdited': isEdited,
+    'mentions': mentions,
   };
 
   CardComment copyWith({
@@ -136,6 +148,9 @@ class CardComment {
     String? userName,
     String? text,
     DateTime? createdAt,
+    String? parentId,
+    bool? isEdited,
+    List<String>? mentions,
   }) {
     return CardComment(
       id: id ?? this.id,
@@ -144,6 +159,9 @@ class CardComment {
       userName: userName ?? this.userName,
       text: text ?? this.text,
       createdAt: createdAt ?? this.createdAt,
+      parentId: parentId ?? this.parentId,
+      isEdited: isEdited ?? this.isEdited,
+      mentions: mentions ?? this.mentions,
     );
   }
 }

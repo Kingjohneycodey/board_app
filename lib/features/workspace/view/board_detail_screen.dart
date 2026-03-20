@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:board_app/features/workspace/providers/workspace_provider.dart';
 import 'package:board_app/features/boards/providers/board_provider.dart';
+import 'package:board_app/features/profile/providers/profile_provider.dart';
 import 'package:board_app/core/models/board_models.dart';
 import 'package:board_app/core/theme/app_theme.dart';
 import 'package:board_app/core/widgets/app_state_widgets.dart';
@@ -31,9 +32,18 @@ class _BoardDetailScreenState extends ConsumerState<BoardDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final detailState = ref.watch(boardDetailProvider(widget.boardId));
-    final board = ref.watch(boardNotifierProvider).value?.firstWhere(
+    final board = ref
+        .watch(boardNotifierProvider)
+        .value
+        ?.firstWhere(
           (b) => b.id == widget.boardId,
-          orElse: () => Board(id: '', title: 'Board Details', description: '', createdAt: DateTime.now(), ownerId: ''),
+          orElse: () => Board(
+            id: '',
+            title: 'Board Details',
+            description: '',
+            createdAt: DateTime.now(),
+            ownerId: '',
+          ),
         );
 
     return Scaffold(
@@ -743,314 +753,343 @@ class _CardItem extends ConsumerWidget {
 
   void _showCardDetailsBottomSheet(BuildContext context, WidgetRef ref) {
     final commentController = TextEditingController();
+    final focusNode = FocusNode();
+    String? replyingToCommentId;
+    String? replyingToUserName;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Consumer(
-        builder: (context, ref, child) {
-          final detailState = ref.watch(boardDetailProvider(boardId));
-          BoardCard? currentCard;
-          if (detailState != null) {
-            for (final entry in detailState.cardsByColumn.entries) {
-              final found = entry.value.where((c) => c.id == card.id);
-              if (found.isNotEmpty) {
-                currentCard = found.first;
-                break;
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => Consumer(
+          builder: (context, ref, child) {
+            final detailState = ref.watch(boardDetailProvider(boardId));
+            BoardCard? currentCard;
+            if (detailState != null) {
+              for (final entry in detailState.cardsByColumn.entries) {
+                final found = entry.value.where((c) => c.id == card.id);
+                if (found.isNotEmpty) {
+                  currentCard = found.first;
+                  break;
+                }
               }
             }
-          }
 
-          final displayCard = currentCard ?? card;
+            final displayCard = currentCard ?? card;
 
-          return Container(
-            height: MediaQuery.of(context).size.height * 0.8,
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.8,
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
                 ),
-                Expanded(
-                  child: CustomScrollView(
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.all(24),
-                        sliver: SliverList(
-                          delegate: SliverChildListDelegate([
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    displayCard.title,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  icon: const Icon(Icons.close),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'In column: ${detailState?.columns.firstWhere(
-                                    (c) => c.id == displayCard.columnId,
-                                    orElse: () => BoardColumn(id: '', boardId: '', title: '-', order: 0),
-                                  ).title ?? ""}',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                            const SizedBox(height: 24),
-                            if (displayCard.description.isNotEmpty) ...[
-                              const Text(
-                                'Description',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                displayCard.description,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  height: 1.5,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                            ],
-                            if (displayCard.tags.isNotEmpty) ...[
-                              const Text(
-                                'Tags',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: displayCard.tags
-                                    .map((tag) => _TagBadge(tag: tag))
-                                    .toList(),
-                              ),
-                              const SizedBox(height: 24),
-                            ],
-                            if (displayCard.dueDate != null) ...[
-                              const Text(
-                                'Deadline',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Expanded(
+                    child: CustomScrollView(
+                      slivers: [
+                        SliverPadding(
+                          padding: const EdgeInsets.all(24),
+                          sliver: SliverList(
+                            delegate: SliverChildListDelegate([
                               Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Icon(
-                                    Icons.access_time,
-                                    size: 18,
-                                    color: Colors.redAccent,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    DateFormat(
-                                      'MMMM d, yyyy',
-                                    ).format(displayCard.dueDate!),
-                                    style: const TextStyle(
-                                      color: Colors.redAccent,
+                                  Expanded(
+                                    child: Text(
+                                      displayCard.title,
+                                      style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    icon: const Icon(Icons.close),
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'In column: ${detailState?.columns.firstWhere(
+                                      (c) => c.id == displayCard.columnId,
+                                      orElse: () => BoardColumn(id: '', boardId: '', title: '-', order: 0),
+                                    ).title ?? ""}',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
                               const SizedBox(height: 24),
-                            ],
-                            const Divider(),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Comments',
-                              style: TextStyle(
-                                fontSize: 18,
+                              if (displayCard.description.isNotEmpty) ...[
+                                const Text(
+                                  'Description',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  displayCard.description,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    height: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                              ],
+                              if (displayCard.tags.isNotEmpty) ...[
+                                const Text(
+                                  'Tags',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: displayCard.tags
+                                      .map((tag) => _TagBadge(tag: tag))
+                                      .toList(),
+                                ),
+                                const SizedBox(height: 24),
+                              ],
+                              if (displayCard.dueDate != null) ...[
+                                const Text(
+                                  'Deadline',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.access_time,
+                                      size: 18,
+                                      color: Colors.redAccent,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      DateFormat(
+                                        'MMMM d, yyyy',
+                                      ).format(displayCard.dueDate!),
+                                      style: const TextStyle(
+                                        color: Colors.redAccent,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 24),
+                              ],
+                              const Divider(),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Comments',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ]),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          sliver: displayCard.comments.isEmpty
+                              ? const SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 20),
+                                    child: Center(
+                                      child: Text(
+                                        'No comments yet',
+                                        style: TextStyle(color: Colors.grey),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : SliverList(
+                                  delegate: SliverChildBuilderDelegate(
+                                    (context, index) {
+                                      final topLevelComments = displayCard
+                                          .comments
+                                          .where((c) => c.parentId == null)
+                                          .toList();
+                                      if (index >= topLevelComments.length)
+                                        return null;
+
+                                      final comment = topLevelComments[index];
+                                      final replies = displayCard.comments
+                                          .where(
+                                            (c) => c.parentId == comment.id,
+                                          )
+                                          .toList();
+
+                                      return _CommentThread(
+                                        comment: comment,
+                                        replies: replies,
+                                        boardId: boardId,
+                                        cardId: displayCard.id,
+                                        onReply: (parentId) {
+                                          setSheetState(() {
+                                            replyingToCommentId = parentId;
+                                            replyingToUserName =
+                                                comment.userName;
+                                          });
+                                          focusNode.requestFocus();
+                                        },
+                                      );
+                                    },
+                                    childCount: displayCard.comments
+                                        .where((c) => c.parentId == null)
+                                        .length,
+                                  ),
+                                ),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                      ],
+                    ),
+                  ),
+                  if (replyingToCommentId != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      color: AppTheme.primaryColor.withOpacity(0.05),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.reply,
+                            size: 14,
+                            color: AppTheme.primaryColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Replying to $replyingToUserName',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.primaryColor,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 16),
-                          ]),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        sliver: displayCard.comments.isEmpty
-                            ? const SliverToBoxAdapter(
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 20),
-                                  child: Center(
-                                    child: Text(
-                                      'No comments yet',
-                                      style: TextStyle(color: Colors.grey),
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : SliverList(
-                                delegate: SliverChildBuilderDelegate((
-                                  context,
-                                  index,
-                                ) {
-                                  final comment = displayCard.comments[index];
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 20),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 16,
-                                          backgroundColor: AppTheme.primaryColor
-                                              .withValues(alpha: 0.1),
-                                          child: Text(
-                                            comment.userName.isNotEmpty
-                                                ? comment.userName[0]
-                                                      .toUpperCase()
-                                                : '?',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: AppTheme.primaryColor,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Text(
-                                                    comment.userName,
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 14,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    DateFormat(
-                                                      'MMM d, HH:mm',
-                                                    ).format(comment.createdAt),
-                                                    style: TextStyle(
-                                                      color: Colors.grey[500],
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                comment.text,
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  height: 1.4,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }, childCount: displayCard.comments.length),
-                              ),
-                      ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 100)),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    top: 12,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, -5),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: commentController,
-                          decoration: InputDecoration(
-                            hintText: 'Write a comment...',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide.none,
-                            ),
-                            filled: true,
-                            fillColor:
-                                Theme.of(context).brightness == Brightness.dark
-                                ? Colors.grey[800]
-                                : Colors.grey[100],
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
                           ),
-                          maxLines: null,
-                        ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 14),
+                            onPressed: () => setSheetState(() {
+                              replyingToCommentId = null;
+                              replyingToUserName = null;
+                            }),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        onPressed: () async {
-                          if (commentController.text.trim().isNotEmpty) {
-                            final text = commentController.text.trim();
-                            commentController.clear();
-                            await ref
-                                .read(workspaceNotifierProvider.notifier)
-                                .addComment(boardId, displayCard, text);
-                          }
-                        },
-                        icon: const Icon(
-                          Icons.send,
-                          color: AppTheme.primaryColor,
+                    ),
+                  Container(
+                    padding: EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      top: 12,
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, -5),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: commentController,
+                            focusNode: focusNode,
+                            decoration: InputDecoration(
+                              hintText: replyingToCommentId != null
+                                  ? 'Write a reply...'
+                                  : 'Write a comment...',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide.none,
+                              ),
+                              filled: true,
+                              fillColor:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.grey[800]
+                                  : Colors.grey[100],
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 10,
+                              ),
+                            ),
+                            maxLines: null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: () async {
+                            if (commentController.text.trim().isNotEmpty) {
+                              final text = commentController.text.trim();
+                              final parentId = replyingToCommentId;
+                              commentController.clear();
+                              setSheetState(() {
+                                replyingToCommentId = null;
+                                replyingToUserName = null;
+                              });
+                              focusNode.unfocus();
+
+                              final userProfile = ref.read(userProfileProvider);
+                              await ref
+                                  .read(workspaceNotifierProvider.notifier)
+                                  .addComment(
+                                    boardId: boardId,
+                                    cardId: displayCard.id,
+                                    text: text,
+                                    userId:
+                                        userProfile?.id.toString() ??
+                                        'mock_user',
+                                    userName: userProfile?.name ?? 'John Doe',
+                                    parentId: parentId,
+                                  );
+                            }
+                          },
+                          icon: const Icon(
+                            Icons.send,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -1336,6 +1375,397 @@ class _ConnectionStatusIndicator extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _CommentThread extends ConsumerWidget {
+  final CardComment comment;
+  final List<CardComment> replies;
+  final String boardId;
+  final String cardId;
+  final Function(String) onReply;
+
+  const _CommentThread({
+    required this.comment,
+    required this.replies,
+    required this.boardId,
+    required this.cardId,
+    required this.onReply,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _CommentItem(
+          comment: comment,
+          boardId: boardId,
+          cardId: cardId,
+          onReply: () => onReply(comment.id),
+        ),
+        if (replies.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 32),
+            child: Column(
+              children: replies
+                  .map(
+                    (reply) => _CommentItem(
+                      comment: reply,
+                      boardId: boardId,
+                      cardId: cardId,
+                      isReply: true,
+                      onReply: () => onReply(comment.id),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+}
+
+class _CommentItem extends ConsumerWidget {
+  final CardComment comment;
+  final String boardId;
+  final String cardId;
+  final bool isReply;
+  final VoidCallback onReply;
+
+  const _CommentItem({
+    required this.comment,
+    required this.boardId,
+    required this.cardId,
+    this.isReply = false,
+    required this.onReply,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isMe =
+        ref.watch(userProfileProvider)?.id.toString() == comment.userId ||
+        comment.userId == 'mock_user' ||
+        comment.userId.isEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Transform.translate(
+            offset: Offset(0, isReply ? 9.0 : 4.0),
+            child: CircleAvatar(
+              radius: isReply ? 14 : 18,
+              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+              child: Text(
+                comment.userName.isNotEmpty
+                    ? comment.userName[0].toUpperCase()
+                    : '?',
+                style: TextStyle(
+                  fontSize: isReply ? 11 : 13,
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Transform.translate(
+                  offset: Offset(0, isReply ? 0.0 : -2.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            comment.userName[0].toUpperCase() +
+                                comment.userName.substring(1),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            DateFormat(
+                              'MMM d, HH:mm',
+                            ).format(comment.createdAt),
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 11,
+                            ),
+                          ),
+                          if (comment.isEdited) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              '(edited)',
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (isMe)
+                        IconButton(
+                          icon: const Icon(
+                            Icons.more_horiz,
+                            size: 18,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () => _showCommentActions(context, ref),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.zero,
+                      topRight: const Radius.circular(16),
+                      bottomLeft: const Radius.circular(16),
+                      bottomRight: const Radius.circular(16),
+                    ),
+                    border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                  ),
+                  child: _CommentText(text: comment.text),
+                ),
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: GestureDetector(
+                    onTap: onReply,
+                    child: const Text(
+                      'Reply',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCommentActions(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+              margin: const EdgeInsets.only(bottom: 24),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Edit Comment'),
+              onTap: () {
+                Navigator.pop(context);
+                _showEditCommentSheet(context, ref);
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline,
+                color: Colors.redAccent,
+              ),
+              title: const Text(
+                'Delete Comment',
+                style: TextStyle(color: Colors.redAccent),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showDeleteConfirmation(context, ref);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditCommentSheet(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController(text: comment.text);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Edit Comment',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              maxLines: 4,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: "What's on your mind?",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      ref
+                          .read(workspaceNotifierProvider.notifier)
+                          .editComment(
+                            boardId: boardId,
+                            cardId: cardId,
+                            commentId: comment.id,
+                            newText: controller.text,
+                          );
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Save Changes',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Comment?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              ref
+                  .read(workspaceNotifierProvider.notifier)
+                  .deleteComment(
+                    boardId: boardId,
+                    cardId: cardId,
+                    commentId: comment.id,
+                  );
+              Navigator.pop(context);
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommentText extends StatelessWidget {
+  final String text;
+  const _CommentText({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final List<TextSpan> spans = [];
+    final words = text.split(' ');
+
+    for (var i = 0; i < words.length; i++) {
+      final word = words[i];
+      if (word.startsWith('@')) {
+        spans.add(
+          TextSpan(
+            text: '$word ',
+            style: const TextStyle(
+              color: AppTheme.primaryColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      } else {
+        spans.add(TextSpan(text: '$word '));
+      }
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(
+          color: Theme.of(context).textTheme.bodyMedium?.color,
+          fontSize: 14,
+          height: 1.4,
+        ),
+        children: spans,
+      ),
     );
   }
 }

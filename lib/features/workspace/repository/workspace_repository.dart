@@ -247,24 +247,126 @@ class WorkspaceRepository {
     }
   }
 
-  Future<void> addComment(
-    BoardCard card,
-    String userId,
-    String userName,
-    String text,
-  ) async {
+  Future<CardComment> addComment({
+    required String cardId,
+    required String text,
+    required String userId,
+    required String userName,
+    String? parentId,
+  }) async {
+    // Find the card to update its local mock state
+    BoardCard? targetCard;
+    String? targetColumnId;
+
+    for (final colId in _mockCards.keys) {
+      final cards = _mockCards[colId]!;
+      final index = cards.indexWhere((c) => c.id == cardId);
+      if (index != -1) {
+        targetCard = cards[index];
+        targetColumnId = colId;
+        break;
+      }
+    }
+
+    if (targetCard == null || targetColumnId == null) {
+      throw Exception('Card not found');
+    }
+
+    // Parse mentions from text (simple @name parser for demonstration)
+    final mentions = RegExp(r'@(\w+)')
+        .allMatches(text)
+        .map((m) => m.group(1)!)
+        .toList();
+
     final newComment = CardComment(
-      id: 'com${DateTime.now().millisecondsSinceEpoch}',
-      cardId: card.id,
+      id: 'cmt${DateTime.now().millisecondsSinceEpoch}',
+      cardId: cardId,
       userId: userId,
       userName: userName,
       text: text,
       createdAt: DateTime.now(),
+      parentId: parentId,
+      mentions: mentions,
     );
 
-    final updatedCard = card.copyWith(comments: [...card.comments, newComment]);
+    final updatedCard = targetCard.copyWith(
+      comments: [...targetCard.comments, newComment],
+    );
 
-    await updateCard(updatedCard);
+    // Update in-memory
+    final colCards = _mockCards[targetColumnId]!;
+    final cardIndex = colCards.indexWhere((c) => c.id == cardId);
+    colCards[cardIndex] = updatedCard;
+
+    // Persist to storage
+    await _storage.saveCards(targetColumnId, colCards);
+
+    _realtime.emit(RealtimeEvent(
+      type: RealtimeEventType.commentAdded,
+      boardId: 'any',
+      columnId: targetColumnId,
+      cardId: cardId,
+      data: newComment.toJson(),
+    ));
+
+    return newComment;
+  }
+
+  Future<void> editComment(String cardId, String commentId, String newText) async {
+    for (final colId in _mockCards.keys) {
+      final cards = _mockCards[colId]!;
+      final cardIndex = cards.indexWhere((c) => c.id == cardId);
+      if (cardIndex != -1) {
+        final card = cards[cardIndex];
+        final commentIndex = card.comments.indexWhere((c) => c.id == commentId);
+        if (commentIndex != -1) {
+          final updatedComments = List<CardComment>.from(card.comments);
+          updatedComments[commentIndex] = updatedComments[commentIndex].copyWith(
+            text: newText,
+            isEdited: true,
+          );
+          
+          final updatedCard = card.copyWith(comments: updatedComments);
+          cards[cardIndex] = updatedCard;
+          
+          await _storage.saveCards(colId, cards);
+          
+          _realtime.emit(RealtimeEvent(
+            type: RealtimeEventType.cardUpdated, // Using updated as generic sync
+            boardId: 'any',
+            columnId: colId,
+            cardId: cardId,
+            data: updatedCard.toJson(),
+          ));
+          return;
+        }
+      }
+    }
+  }
+
+  Future<void> deleteComment(String cardId, String commentId) async {
+    for (final colId in _mockCards.keys) {
+      final cards = _mockCards[colId]!;
+      final cardIndex = cards.indexWhere((c) => c.id == cardId);
+      if (cardIndex != -1) {
+        final card = cards[cardIndex];
+        final updatedComments = card.comments.where((c) => c.id != commentId).toList();
+        
+        final updatedCard = card.copyWith(comments: updatedComments);
+        cards[cardIndex] = updatedCard;
+        
+        await _storage.saveCards(colId, cards);
+        
+        _realtime.emit(RealtimeEvent(
+          type: RealtimeEventType.cardUpdated,
+          boardId: 'any',
+          columnId: colId,
+          cardId: cardId,
+          data: updatedCard.toJson(),
+        ));
+        return;
+      }
+    }
   }
 
   Future<void> deleteColumn(String boardId, String columnId) async {

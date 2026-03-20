@@ -1,8 +1,8 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:board_app/core/models/board_models.dart';
 import 'package:board_app/features/workspace/repository/workspace_repository.dart';
-import 'package:board_app/features/profile/providers/profile_provider.dart';
 import 'package:board_app/core/services/realtime_service.dart';
 import 'package:board_app/core/services/board_storage_service.dart';
 import 'package:board_app/features/auth/providers/auth_provider.dart';
@@ -68,10 +68,8 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
 
     // Listen to real-time events from other devices
     _eventSubscription = _realtime.events.listen((event) {
-      // If we receive an update for a board we are currently watching, reload it
       final currentMap = state.value ?? {};
       if (currentMap.containsKey(event.boardId)) {
-        // Refresh board on external change
         loadBoard(event.boardId, silent: true);
       }
     });
@@ -94,9 +92,7 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     final storage = ref.read(boardStorageProvider);
     final pending = storage.getPendingActions();
     if (pending.isEmpty) return;
-
     await storage.clearPendingActions();
-
     state.value?.keys.forEach((boardId) {
       loadBoard(boardId, silent: true);
     });
@@ -119,7 +115,6 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
 
       for (final column in columns) {
         final cards = await _repository.getCards(column.id);
-        // Sort cards by order
         cards.sort((a, b) => a.order.compareTo(b.order));
         cardsMap[column.id] = cards;
       }
@@ -197,19 +192,16 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     final updatedCard = card.copyWith(columnId: toColumnId);
 
     if (fromColumnId == toColumnId) {
-      // Reordering in same column
       final insertIndex = toIndex ?? fromCards.length;
       fromCards.insert(
         insertIndex > fromCards.length ? fromCards.length : insertIndex,
         updatedCard,
       );
-      // Update orders
       for (int i = 0; i < fromCards.length; i++) {
         fromCards[i] = fromCards[i].copyWith(order: i);
       }
       updatedCardsByColumn[fromColumnId] = fromCards;
     } else {
-      // Moving to different column
       final toCards = List<BoardCard>.from(
         updatedCardsByColumn[toColumnId] ?? [],
       );
@@ -218,7 +210,6 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
         insertIndex > toCards.length ? toCards.length : insertIndex,
         updatedCard,
       );
-      // Update orders for both columns
       for (int i = 0; i < fromCards.length; i++) {
         fromCards[i] = fromCards[i].copyWith(order: i);
       }
@@ -243,7 +234,6 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
       );
       await loadBoard(boardId, silent: true);
     } catch (e) {
-      // Rollback on error
       await loadBoard(boardId);
     }
   }
@@ -271,58 +261,60 @@ class WorkspaceNotifier extends AsyncNotifier<Map<String, BoardDetailState>> {
     await loadBoard(boardId, silent: true);
   }
 
-  Future<void> addComment(String boardId, BoardCard card, String text) async {
-    final userProfile = ref.read(userProfileProvider);
-    // Use fallback if user is null for mock dev
-    final userId = userProfile?.id.toString() ?? 'mock_user';
-    final userName = userProfile?.name ?? 'John Doe';
-
-    final newComment = CardComment(
-      id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
-      cardId: card.id,
-      userId: userId,
-      userName: userName,
-      text: text,
-      createdAt: DateTime.now(),
-    );
-
-    // Optimistic Update
-    final currentMap = state.value ?? {};
-    final boardState = currentMap[boardId];
-    if (boardState != null) {
-      final updatedCardsByColumn = Map<String, List<BoardCard>>.from(
-        boardState.cardsByColumn,
-      );
-      final cards = List<BoardCard>.from(
-        updatedCardsByColumn[card.columnId] ?? [],
-      );
-      final index = cards.indexWhere((c) => c.id == card.id);
-      if (index != -1) {
-        cards[index] = cards[index].copyWith(
-          comments: [...cards[index].comments, newComment],
-        );
-        updatedCardsByColumn[card.columnId] = cards;
-        state = AsyncValue.data({
-          ...currentMap,
-          boardId: boardState.copyWith(cardsByColumn: updatedCardsByColumn),
-        });
-      }
-    }
-
+  Future<void> addComment({
+    required String boardId,
+    required String cardId,
+    required String text,
+    required String userId,
+    required String userName,
+    String? parentId,
+  }) async {
     try {
-      await _repository.addComment(card, userId, userName, text);
+      await _repository.addComment(
+        cardId: cardId,
+        text: text,
+        userId: userId,
+        userName: userName,
+        parentId: parentId,
+      );
       await loadBoard(boardId, silent: true);
     } catch (e) {
-      // Rollback on error
-      await loadBoard(boardId);
+      debugPrint('Error adding comment: $e');
+    }
+  }
+
+  Future<void> editComment({
+    required String boardId,
+    required String cardId,
+    required String commentId,
+    required String newText,
+  }) async {
+    try {
+      await _repository.editComment(cardId, commentId, newText);
+      await loadBoard(boardId, silent: true);
+    } catch (e) {
+      debugPrint('Error editing comment: $e');
+    }
+  }
+
+  Future<void> deleteComment({
+    required String boardId,
+    required String cardId,
+    required String commentId,
+  }) async {
+    try {
+      await _repository.deleteComment(cardId, commentId);
+      await loadBoard(boardId, silent: true);
+    } catch (e) {
+      debugPrint('Error deleting comment: $e');
     }
   }
 }
 
 final workspaceNotifierProvider =
     AsyncNotifierProvider<WorkspaceNotifier, Map<String, BoardDetailState>>(() {
-      return WorkspaceNotifier();
-    });
+  return WorkspaceNotifier();
+});
 
 final boardDetailProvider = Provider.family<BoardDetailState?, String>((
   ref,
